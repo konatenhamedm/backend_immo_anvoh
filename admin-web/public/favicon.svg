@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <defs>
+    <!-- Dégradé principal Bleu Royal vers Cyan -->
+    <linearGradient id="thiebbro-grad" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="50%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#00D2B4"/>
+    </linearGradient>
+
+    <!-- Dégradé de fond sombre prestigieux -->
+    <linearGradient id="bg-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#091931"/>
+      <stop offset="100%" stop-color="#040D1A"/>
+    </linearGradient>
+
+    <!-- Ombre douce -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Fond arrondi squircle moderne -->
+  <rect width="64" height="64" rx="16" fill="url(#bg-grad)"/>
+  <rect x="1" y="1" width="62" height="62" rx="15" stroke="#1E3A8A" stroke-width="1.5" stroke-opacity="0.6"/>
+
+  <!-- Architecture stylisée : Tour + Toit Villa formant un T dynamique -->
+  <g filter="url(#glow)">
+    <!-- Tour gauche haute (Bâtiment moderne) -->
+    <path d="M16 28L26 20V50H16V28Z" fill="url(#thiebbro-grad)" fill-opacity="0.95"/>
+    
+    <!-- Tour droite élancée -->
+    <path d="M28 14L40 24V50H28V14Z" fill="url(#thiebbro-grad)"/>
+
+    <!-- Pente / Toiture contemporaine au-dessus (Chapeau du T) -->
+    <path d="M12 28L32 12L52 28H42L32 20L22 28H12Z" fill="#38BDF8"/>
+
+    <!-- Fenêtres architecturales lumineuses -->
+    <rect x="20" y="32" width="2.5" height="3.5" rx="0.5" fill="#FFFFFF" fill-opacity="0.9"/>
+    <rect x="20" y="39" width="2.5" height="3.5" rx="0.5" fill="#FFFFFF" fill-opacity="0.9"/>
+
+    <rect x="32" y="26" width="3" height="4" rx="0.5" fill="#FFFFFF" fill-opacity="0.95"/>
+    <rect x="32" y="33" width="3" height="4" rx="0.5" fill="#FFFFFF" fill-opacity="0.95"/>
+    <rect x="32" y="40" width="3" height="4" rx="0.5" fill="#FFFFFF" fill-opacity="0.95"/>
+
+    <!-- Accent Émeraude / Étincelle d'excellence -->
+    <circle cx="48" cy="16" r="3" fill="#00D2B4"/>
+    <path d="M48 11V21M43 16H53" stroke="#00D2B4" stroke-width="1.2" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diagramme Relationnel de la Base de Données — THIEBBRO IMMO</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1329;
+      --card-bg: #111e38;
+      --border: #1e335a;
+      --text: #f1f5f9;
+      --accent: #2563eb;
+      --cyan: #06b6d4;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .badge {
+      background: rgba(37, 99, 235, 0.2);
+      border: 1px solid rgba(37, 99, 235, 0.4);
+      color: #60a5fa;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      background: #1e293b;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    #controls {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 20;
+    }
+    #controls button {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    #diagram-container {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      background: radial-gradient(circle at 50% 50%, #11203f 0%, #080e1c 100%);
+    }
+    #diagram-container:active {
+      cursor: grabbing;
+    }
+    .legend {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      background: rgba(17, 30, 56, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 12px;
+      z-index: 20;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .legend-title {
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--cyan);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+      color: #cbd5e1;
+    }
+    .legend-line {
+      width: 24px;
+      height: 2px;
+      background: #60a5fa;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <span class="badge">PRODIGE & PROPTECH</span>
+      <h1>Diagramme Relationnel de la Base de Données (PostgreSQL)</h1>
+    </div>
+    <div class="header-actions">
+      <button onclick="zoomReset()">⟲ Recentrer</button>
+      <button onclick="exportSvg()">⬇ Télécharger le Diagramme</button>
+    </div>
+  </header>
+
+  <div id="diagram-container">
+    <div class="mermaid" id="mermaid-graph">
+erDiagram
+    %% ========================================================
+    %% RELATIONS PRINCIPALES (CARDINALITÉS)
+    %% ========================================================
+    USER ||--o{ PROPERTY : "est_responsable_de (1:N)"
+    USER ||--o{ PROPERTY_FAVORITE : "ajoute_en_favoris (1:N)"
+    USER ||--o{ LEAD : "associe_au_compte (1:N)"
+    USER ||--o{ LEAD : "assigne_comme_conseiller (1:N)"
+    USER ||--o{ PROPERTY_INQUIRY : "transmet (1:N)"
+    USER ||--o{ VISIT_REQUEST : "reserve_visite (1:N)"
+
+    DEVELOPMENT_PROJECT ||--o{ PROJECT_LOT : "se_compose_de (1:N)"
+    DEVELOPMENT_PROJECT ||--o{ PROPERTY : "regroupe_les_biens (1:N)"
+
+    PROPERTY ||--o{ PROPERTY_IMAGE : "possede_photos (1:N)"
+    PROPERTY ||--o{ PROPERTY_FAVORITE : "est_convoite_par (1:N)"
+    PROPERTY ||--o{ LEAD : "bien_cible (1:N)"
+    PROPERTY ||--o{ PROPERTY_INQUIRY : "fait_l_objet_de (1:N)"
+    PROPERTY ||--o{ VISIT_REQUEST : "visite_planifiee (1:N)"
+
+    LEAD ||--o{ CRM_INTERACTION : "historique_echanges (1:N)"
+    LEAD ||--o{ PROPERTY_INQUIRY : "demande_infos (1:N)"
+    LEAD ||--o{ VISIT_REQUEST : "demande_rdv (1:N)"
+
+    %% ========================================================
+    %% DÉFINITION DÉTAILLÉE DES TABLES ET CLÉS
+    %% ========================================================
+
+    USER {
+        bigint id PK "Identifiant utilisateur"
+        string email UK "Adresse email unique"
+        string password "Mot de passe chiffre"
+        string first_name "Prenom"
+        string last_name "Nom"
+        string phone_number "Telephone direct"
+        string country_of_residence "Pays de residence"
+        boolean is_diaspora "Resident etranger"
+        string role "PARTICULIER | INVESTISSEUR | AGENT | ADMIN"
+        string project_objective "HABITER | INVESTIR | LOUER"
+        decimal project_budget "Budget prevu (FCFA)"
+        decimal project_down_payment "Apport disponible (FCFA)"
+        string project_zone "Zone cible (Cocody...)"
+        boolean is_staff "Droit acces console"
+        datetime created_at "Date inscription"
+    }
+
+    DEVELOPMENT_PROJECT {
+        uuid id PK "Identifiant unique UUID"
+        string name "Nom du programme neuf"
+        string slug UK "Identifiant URL"
+        string developer_name "Nom du promoteur"
+        string city "Ville (Abidjan)"
+        string commune "Commune (Cocody...)"
+        string neighborhood "Quartier (Abatta...)"
+        text description "Presentation detaillee"
+        integer total_lots_count "Nombre total de lots"
+        string delivery_date "Echeance (ex: T4 2026)"
+        decimal starting_price "Prix d appel (FCFA)"
+        string cover_image "Photo principale"
+        boolean is_featured "Mise en avant"
+        datetime created_at "Date ajout"
+    }
+
+    PROJECT_LOT {
+        uuid id PK "Identifiant du lot"
+        uuid project_id FK "Programme parent"
+        string lot_number "Numero de lot (ex: Lot 101)"
+        string typology "F1 | F2 | F3 | F4 | F5"
+        string building_name "Batiment / Tour"
+        integer floor "Etage"
+        decimal surface_sqm "Surface utile m2"
+        decimal price "Prix du lot (FCFA)"
+        string status "DISPONIBLE | RESERVE | VENDU"
+    }
+
+    PROPERTY {
+        uuid id PK "Identifiant unique du bien"
+        string reference UK "Reference (ex: THI-2026-001)"
+        string title "Titre de l annonce"
+        string slug UK "Identifiant URL"
+        string property_type "VILLA | APPARTEMENT | TERRAIN"
+        string typology "F1 | F2 | F3 | F4 | F5"
+        string target_goal "HABITATION | INVESTISSEMENT"
+        string status "DISPONIBLE | RESERVE | VENDU"
+        string verification_status "NON_VERIFIE | VERIFIE | RENFORCE"
+        decimal price "Prix du bien (FCFA)"
+        decimal estimated_monthly_rent "Loyer mensuel estime"
+        decimal estimated_yield_rate "Rentabilite calculée (%)"
+        integer investment_score "Score IA (0 a 100)"
+        string commune "Commune"
+        string neighborhood "Quartier"
+        decimal surface_sqm "Superficie en m2"
+        integer rooms_count "Nombre de pieces"
+        boolean has_parking "Parking inclus"
+        boolean has_swimming_pool "Piscine"
+        uuid development_project_id FK "Programme rattache"
+        bigint assigned_agent_id FK "Agent commercial assigne"
+        datetime created_at "Date publication"
+    }
+
+    PROPERTY_IMAGE {
+        uuid id PK "Identifiant photo"
+        uuid property_id FK "Bien immobilier"
+        string image "Fichier photo"
+        string caption "Legende"
+        boolean is_cover "Photo de couverture"
+        integer order "Ordre affichage"
+    }
+
+    PROPERTY_FAVORITE {
+        uuid id PK "Identifiant favori"
+        bigint user_id FK "Client concerné"
+        uuid property_id FK "Bien immobilier"
+        datetime created_at "Date d ajout"
+    }
+
+    LEAD {
+        uuid id PK "Identifiant prospect"
+        bigint user_id FK "Compte utilisateur optionnel"
+        string full_name "Nom complet du prospect"
+        string phone_number "Telephone"
+        string whatsapp_number "Numero WhatsApp"
+        string email "Adresse email"
+        string objective "Objectif immobilier"
+        decimal budget "Budget estime (FCFA)"
+        uuid consulted_property_id FK "Bien consulte"
+        string source "APP | WEB | WHATSAPP"
+        string stage "NOUVEAU | RDV | VISITE | VENTE"
+        integer score "Score d intention (0-100)"
+        string temperature "FROID | TIEDE | CHAUD"
+        bigint assigned_agent_id FK "Agent responsable"
+        datetime created_at "Date entree"
+    }
+
+    CRM_INTERACTION {
+        uuid id PK "Identifiant interaction"
+        uuid lead_id FK "Prospect cible"
+        string interaction_type "WHATSAPP | APPEL | EMAIL"
+        text details "Resume de l echange"
+        datetime created_at "Date et heure"
+    }
+
+    PROPERTY_INQUIRY {
+        uuid id PK "Identifiant demande"
+        uuid property_id FK "Bien immobilier concerne"
+        uuid lead_id FK "Prospect demandeur"
+        bigint user_id FK "Utilisateur connecte"
+        string objective "Motivation du client"
+        text message "Message detaille"
+        boolean is_processed "Traite par l agence"
+        datetime created_at "Date soumission"
+    }
+
+    VISIT_REQUEST {
+        uuid id PK "Identifiant rendez-vous"
+        uuid property_id FK "Bien a visiter"
+        uuid lead_id FK "Prospect"
+        bigint user_id FK "Utilisateur connecte"
+        string visit_type "PHYSIQUE | VISIO"
+        string status "EN_ATTENTE | CONFIRMEE | EFFECTUEE"
+        date scheduled_date "Date de visite"
+        time scheduled_time "Heure de visite"
+        text notes "Consignes d acces"
+        datetime created_at "Date prise de RDV"
+    }
+    </div>
+  </div>
+
+  <div id="controls">
+    <button onclick="zoomIn()" title="Zoom avant">+</button>
+    <button onclick="zoomOut()" title="Zoom arrière">−</button>
+    <button onclick="zoomReset()" title="Réinitialiser">⊙</button>
+  </div>
+
+  <div class="legend">
+    <div class="legend-title">Notation des Relations</div>
+    <div class="legend-item"><div class="legend-line"></div> <span>||--o{ : Relation 1 à Plusieurs (1:N)</span></div>
+    <div class="legend-item"><span>PK : Clé Primaire &nbsp;|&nbsp; FK : Clé Étrangère &nbsp;|&nbsp; UK : Unique</span></div>
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: 'transparent',
+        primaryColor: '#1d4ed8',
+        primaryTextColor: '#ffffff',
+        primaryBorderColor: '#3b82f6',
+        lineColor: '#60a5fa',
+        secondaryColor: '#0f172a',
+        tertiaryColor: '#1e293b',
+        fontSize: '13px'
+      }
+    });
+
+    let panZoomInstance = null;
+
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const svg = document.querySelector('#mermaid-graph svg');
+        if (svg) {
+          svg.style.width = '100%';
+          svg.style.height = '100%';
+          panZoomInstance = svgPanZoom(svg, {
+            zoomEnabled: true,
+            controlIconsEnabled: false,
+            fit: true,
+            center: true,
+            minZoom: 0.2,
+            maxZoom: 10
+          });
+        }
+      }, 700);
+    });
+
+    function zoomIn() {
+      if (panZoomInstance) panZoomInstance.zoomIn();
+    }
+
+    function zoomOut() {
+      if (panZoomInstance) panZoomInstance.zoomOut();
+    }
+
+    function zoomReset() {
+      if (panZoomInstance) {
+        panZoomInstance.resetZoom();
+        panZoomInstance.center();
+      }
+    }
+
+    function exportSvg() {
+      const svg = document.querySelector('#mermaid-graph svg');
+      if (!svg) return;
+      const serializer = new FileReader();
+      const svgBlob = new Blob([svg.outerHTML], { type: 'image/svg+xml;charset=utf-8' });
+      const URL = window.URL || window.webkitURL || window;
+      const blobURL = URL.createObjectURL(svgBlob);
+      const anchor = document.createElement('a');
+      anchor.href = blobURL;
+      anchor.download = 'diagramme_base_de_donnees_thiebbro.svg';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+    }
+  </script>
+</body>
+</html>

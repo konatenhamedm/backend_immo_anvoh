@@ -1,0 +1,30 @@
+# Python & Environnement
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Variables d'environnement secrètes
+.env
+
+# Node / Frontend Admin
+admin-web/node_modules/
+admin-web/dist/
+admin-web/.tanstack/
+admin-web/*.local
+
+# IDEs & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
