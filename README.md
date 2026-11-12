@@ -161,3 +161,43 @@ python manage.py test apps.simulators
 - **CORS activé** : Les origines Vite / TanStack (`localhost:5173`, `localhost:3000`) sont autorisées via `django-cors-headers`.
 - **Génération automatique de code côté Front** : Ton collègue peut générer ses types TypeScript et requêtes TanStack Query avec `@hey-api/openapi-ts` ou `kubb`.
 
+---
+
+## 🔄 Mise à jour : API connectée au site Next.js (novembre 2026)
+
+### Sécurité (changements importants)
+- **Toutes les routes exigent une connexion par défaut.** Les routes publiques (catalogue, fiche, simulateurs, formulaires de contact) le déclarent explicitement.
+- **Permissions par rôle** (`apps/users/interfaces/permissions.py`) : administrateur, équipe (admin + conseiller), propriétaire, notaire.
+- **Rôle verrouillé** : l'inscription n'accepte que `PARTICULIER`, `INVESTISSEUR` ou `PROPRIETAIRE` ; le profil ne permet plus de changer de rôle. Seul un administrateur attribue `AGENT`, `NOTAIRE` ou `ADMIN`.
+- `DEBUG` désactivé par défaut, `SECRET_KEY` obligatoire en production, CORS limité aux origines déclarées, limitation de débit (120 req/min anonyme, 600 connecté), mots de passe validés par Django (8 caractères minimum).
+- `seed_data` refuse de tourner avec `DEBUG=False` (sauf `--force`) et n'écrit plus aucun mot de passe en dur.
+
+### Nouveaux domaines (`apps/`)
+| App | Rôle | Routes principales |
+| :--- | :--- | :--- |
+| `accreditation` | Notaires partenaires, dossier de vérification par bien (4 étapes), pièces justificatives, certification ou refus | `/api/v1/accreditation/notaries/`, `owner/files/`, `owner/properties/<id>/documents/`, `queue/`, `queue/<id>/` (assign, advance, certify, refuse), `documents/<id>/` |
+| `messaging` | Conversations acheteur ↔ propriétaire / conseiller / notaire, non-lus | `/api/v1/messaging/conversations/`, `conversations/<id>/messages/`, `unread-count/` |
+| `investments` | Plans, souscriptions, échéancier (mensualités, versements, revenus reversés), documents | `/api/v1/investments/plans/`, `subscriptions/`, `me/`, `admin/plans/`, `admin/stats/`, `admin/subscriptions/`, `admin/entries/<id>/confirm/` |
+| `rentals` | Gestion locative : baux, loyers encaissés, versements aux propriétaires | `/api/v1/rentals/owner/summary/`, `admin/leases/`, `admin/payments/`, `admin/payouts/` |
+
+### Ajouts aux domaines existants
+- **Biens** : propriétaire, vente ou location, type de titre, vues, équipements libres, photos par URL externe, demande et planification de scan 3D. Référence et slug générés automatiquement. Fiche par slug (`/properties/slug/<slug>/`), espace propriétaire (`/properties/owner/`, `owner/dashboard/`), photos (`/properties/<id>/images/`), catalogue back-office (`/properties/admin/properties/`), référentiels (`/properties/meta/`).
+- **CRM** : téléphones normalisés et dédoublonnés, score cumulatif (ne baisse plus), étapes qui n'avancent que vers l'avant, plus de lead « Inconnu » pour les clics WhatsApp anonymes, visites dans le passé refusées. Nouveaux : tableau de bord admin, saisie manuelle de prospect, notes, visites côté propriétaire, annulation par le client, alertes de recherche (`/crm/alerts/`).
+- **Comptes** : vérification d'identité (dépôt de pièce), préférences de notification, changement de mot de passe (`/auth/profile/password/`), gestion des comptes par l'admin (filtres, statut, rôle).
+
+### Paiements
+Aucun prestataire de paiement n'est branché. Une souscription crée l'échéancier ; le premier versement reste « en attente de validation » jusqu'à sa confirmation par l'équipe (`admin/entries/<id>/confirm/`, bouton « Valider le paiement » dans le back-office). Le branchement d'un prestataire (CinetPay, Paydunya…) remplacera cette confirmation par un webhook.
+
+### Démarrage rapide en local (SQLite)
+```bash
+python -m venv .venv && .venv/Scripts/pip install -r requirements.txt   # Windows (sous macOS/Linux : .venv/bin/…)
+export DB_ENGINE=django.db.backends.sqlite3 DEBUG=True SEED_PASSWORD='un-mot-de-passe-de-demo'
+python manage.py migrate
+python manage.py seed_data      # 12 biens, propriétaires, notaires, CRM, plans, gestion locative, messages
+python manage.py runserver
+python manage.py test apps      # 22 tests
+```
+Comptes de démonstration (mot de passe = `SEED_PASSWORD`) : `admin@thiebbro.ci` (admin), `koffi.agent@thiebbro.ci` (conseiller), `k.yao@mail.ci` (propriétaire), `awa.traore@mail.ci` (acheteuse), `a.kone@notaire.ci` (notaire).
+
+### admin-web
+Le back-office Vite a désormais un écran de connexion (réservé à l'équipe) : l'API n'accepte plus d'appels anonymes. L'URL de l'API se règle avec `VITE_API_URL`. Le site Next.js contient un back-office plus complet (`/admin`) : `admin-web` peut être retiré à terme.

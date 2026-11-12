@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import permissions, status
 from drf_spectacular.utils import extend_schema
 
 from apps.simulators.application.use_cases import (
@@ -15,6 +15,7 @@ from apps.simulators.interfaces.serializers import (
 )
 
 class InvestmentYieldSimulationView(APIView):
+    permission_classes = [permissions.AllowAny]
     """
     Contrôleur API pour calculer la rentabilité brute/nette et le cash-flow d'un investissement immobilier.
     """
@@ -38,6 +39,7 @@ class InvestmentYieldSimulationView(APIView):
 
 
 class BorrowingCapacitySimulationView(APIView):
+    permission_classes = [permissions.AllowAny]
     """
     Contrôleur API pour calculer la capacité d'emprunt maximale et le pouvoir d'achat immobilier.
     """

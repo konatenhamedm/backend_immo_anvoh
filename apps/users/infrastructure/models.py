@@ -34,7 +34,19 @@ class UserRole(models.TextChoices):
     PROPRIETAIRE = 'PROPRIETAIRE', 'Propriétaire'
     PROMOTEUR = 'PROMOTEUR', 'Promoteur Immobilier'
     AGENT = 'AGENT', 'Agent Commercial / Conseiller'
+    NOTAIRE = 'NOTAIRE', 'Notaire partenaire'
     ADMIN = 'ADMIN', 'Administrateur'
+
+
+class IdentityStatus(models.TextChoices):
+    NON_SOUMIS = 'NON_SOUMIS', 'Non soumise'
+    EN_ATTENTE = 'EN_ATTENTE', 'En cours de vérification'
+    VERIFIE = 'VERIFIE', 'Identité vérifiée'
+    REFUSE = 'REFUSE', 'Refusée'
+
+
+# Rôles qu'un visiteur peut choisir lui-même à l'inscription (les autres sont attribués par un administrateur).
+SELF_SERVICE_ROLES = (UserRole.PARTICULIER, UserRole.INVESTISSEUR, UserRole.PROPRIETAIRE)
 
 
 class ProjectObjective(models.TextChoices):
@@ -73,6 +85,12 @@ class User(AbstractUser):
 
     # Paramètres utilisateur
     notifications_enabled = models.BooleanField('Notifications actives', default=True)
+    # Préférences détaillées : {"new_matches": bool, "price_drops": bool, "visit_reminders": bool, "newsletter": bool}
+    notification_preferences = models.JSONField('Préférences de notification', default=dict, blank=True)
+
+    # Vérification d'identité (KYC) — exigée des propriétaires avant publication, utile pour les souscriptions
+    identity_status = models.CharField('Vérification d\'identité', max_length=20, choices=IdentityStatus.choices, default=IdentityStatus.NON_SOUMIS)
+    identity_document = models.FileField('Pièce d\'identité', upload_to='kyc/%Y/%m/', blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

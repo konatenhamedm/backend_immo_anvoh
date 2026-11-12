@@ -146,6 +146,7 @@ class PropertyInquiry(models.Model):
 class VisitRequestType(models.TextChoices):
     PHYSIQUE = 'PHYSIQUE', 'Visite physique sur site'
     VISIO = 'VISIO', 'Visio / Visite à distance (Diaspora)'
+    VISITE_3D = 'VISITE_3D', 'Visite 3D guidée (Matterport)'
 
 
 class VisitRequestStatus(models.TextChoices):
@@ -180,3 +181,35 @@ class VisitRequest(models.Model):
 
     def __str__(self):
         return f"Visite de {self.property.title} le {self.scheduled_date} à {self.scheduled_time} ({self.get_status_display()})"
+
+
+class AlertFrequency(models.TextChoices):
+    IMMEDIATE = 'IMMEDIATE', "Dès qu'un bien est publié"
+    DAILY = 'DAILY', 'Résumé quotidien'
+    WEEKLY = 'WEEKLY', 'Résumé hebdomadaire'
+
+
+class SearchAlert(models.Model):
+    """Alerte de recherche enregistrée par un utilisateur (critères du catalogue)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='search_alerts')
+    transaction = models.CharField('Transaction (VENTE/LOCATION, vide = toutes)', max_length=10, blank=True)
+    property_type = models.CharField('Type de bien (code, vide = tous)', max_length=30, blank=True)
+    commune = models.CharField('Commune (vide = toutes)', max_length=100, blank=True)
+    max_budget = models.DecimalField('Budget maximum (FCFA)', max_digits=14, decimal_places=2, null=True, blank=True)
+    frequency = models.CharField('Fréquence', max_length=20, choices=AlertFrequency.choices, default=AlertFrequency.IMMEDIATE)
+    is_active = models.BooleanField(default=True)
+    last_notified_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Alerte de recherche'
+        verbose_name_plural = 'Alertes de recherche'
+        ordering = ['-created_at']
+
+    def matches(self, prop) -> bool:
+        """Le bien correspond-il aux critères de l'alerte ? (utilisé par l'envoi des notifications)"""
+        return ((not self.transaction or prop.transaction == self.transaction)
+                and (not self.property_type or prop.property_type == self.property_type)
+                and (not self.commune or self.commune.lower() in prop.commune.lower())
+                and (self.max_budget is None or prop.price <= self.max_budget))
