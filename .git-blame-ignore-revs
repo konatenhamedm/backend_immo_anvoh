@@ -1,0 +1,7 @@
+# Commits de pure mise en forme ou de déplacement de code : ignorés par « git blame » pour garder la vraie origine des lignes.
+# Activer une fois : git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Style : reformatage Ruff de tout le backend
+2008aefcaa7d73d0c1f006562c77ca649203547b
+# Refactor crm et properties : vues découpées par public (déplacement pur)
+94b35ac65d9c276cba3b58c398f4bb7a5db3278a
