@@ -1,3 +1,6 @@
+> **OBSOLÈTE** — Le back-office vit désormais dans le front Next.js (`thiebbroimmobilier`, route `/admin`), avec les mêmes composants (`src/components/admin-ui/`).
+> Cette application est conservée comme référence de design le temps de la recette, puis sera supprimée. Elle ne fonctionne plus telle quelle : l'API exige une connexion avec rafraîchissement du jeton, et certaines routes qu'elle appelle n'existent plus.
+
 # 🖥️ THIEBBRO IMMO - Back-Office (TanStack & Tailwind v4)
 
 Application web d'administration et CRM développée avec **TanStack Router**, **TanStack Query** et **Tailwind CSS v4**, reprenant l'architecture et le design system soigné de votre projet `front-web`.

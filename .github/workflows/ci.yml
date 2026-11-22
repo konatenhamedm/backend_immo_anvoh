@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: thiebbro_immo_db
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DEBUG: "True"
+      SECRET_KEY: ci-only-not-a-secret
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: thiebbro_immo_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Formatage (ruff format) — le dépôt est entièrement formaté
+        run: ruff format --check .
+      - name: Analyse (ruff check)
+        run: ruff check .
+      - name: Vérifications Django
+        run: python manage.py check
+      - name: Migrations à jour (aucun modèle modifié sans migration)
+        run: python manage.py makemigrations --check --dry-run
+      - name: Schéma OpenAPI sans erreur ni avertissement
+        run: python manage.py spectacular --file openapi.yaml --fail-on-warn
+      - name: "Tests (dont le parcours de toutes les routes : public ou refusé)"
+        run: python manage.py test apps
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openapi
+          path: openapi.yaml

@@ -1,6 +1,21 @@
 """
 Règles métier des prospects (leads).
 
+QUE CONTIENT CE FICHIER ?
+-------------------------
+Trois fonctions écrites POUR CE PROJET (ce ne sont pas des fonctions de Django ni de DRF) :
+
+    find_or_create_lead(...)   retrouve un prospect par son téléphone, ou le crée    → ÉCRIT en base
+    advance_stage(lead, ...)   fait avancer l'étape du pipeline, jamais en arrière   → en mémoire seulement
+    rescore(lead)              recalcule le score et la température                  → en mémoire seulement
+
+« En mémoire seulement » = la fonction modifie l'objet Python mais n'écrit RIEN en base : c'est à l'appelant
+de faire lead.save() ensuite (comme avec Doctrine : modifier l'entité ne suffit pas, il faut un flush).
+
+Pourquoi ici et pas dans les contrôleurs ? C'est le « domain service » (≈ un Service Symfony sans dépendance HTTP) :
+la même règle sert au formulaire de contact, à WhatsApp, à la réservation de visite et à la saisie manuelle de
+l'équipe, et elle peut être testée sans serveur.
+
 Corrige les défauts de la première version :
 - téléphone normalisé (+225…) avant tout dédoublonnage ;
 - un clic WhatsApp anonyme sans numéro ne crée plus de lead fourre-tout « Inconnu » ;
@@ -17,6 +32,8 @@ from django.utils import timezone
 from apps.crm.domain.scoring_service import LeadScoringDomainService
 from apps.crm.infrastructure.models import Lead, PipelineStage
 
+# Ordre du pipeline commercial, du début à la fin. « PERDU » n'y figure pas : c'est une sortie, pas une étape.
+# Sert à comparer deux étapes (STAGE_ORDER.index("RDV") > STAGE_ORDER.index("CONTACTE")) pour ne jamais reculer.
 STAGE_ORDER = [
     PipelineStage.NOUVEAU,
     PipelineStage.CONTACTE,
@@ -48,6 +65,8 @@ def normalize_phone(raw: str | None) -> str:
     return digits
 
 
+# @transaction.atomic (natif Django) : tout ce que fait la fonction est dans UNE transaction SQL — si une erreur
+# survient, rien n'est enregistré (≈ $em->wrapInTransaction()). Évite d'avoir un prospect à moitié écrit.
 @transaction.atomic
 def find_or_create_lead(
     *,
@@ -59,10 +78,32 @@ def find_or_create_lead(
     prop=None,
     extra: dict | None = None,
 ) -> Lead | None:
-    """Retrouve le lead (par téléphone normalisé, sinon par compte) ou le crée. None si le visiteur est inidentifiable."""
+    """
+    Retrouve le prospect existant, ou en crée un nouveau. C'est le point d'entrée UNIQUE pour éviter les doublons.
+
+    « find or create » = « chercher, sinon créer ». Elle est appelée par : le formulaire de demande d'informations,
+    la réservation de visite, « Trouver mon bien », le clic WhatsApp et la saisie manuelle de l'équipe.
+
+    Paramètres (tous nommés : on écrit find_or_create_lead(phone=..., source=...), c'est le sens du « * ») :
+        phone      téléphone saisi (n'importe quel format) ; normalisé avant la recherche
+        user       compte connecté s'il y en a un (permet de rattacher le prospect à son compte)
+        full_name, email   informations saisies
+        source     d'où vient le prospect (LeadSource : SITE_WEB, WHATSAPP, VISITE, AUTRE…)
+        prop       bien consulté (objet Property) — assigne aussi le conseiller du bien s'il n'y en a pas
+        extra      dictionnaire de champs en plus (budget, notes…), posés SEULEMENT s'ils sont renseignés
+
+    Retourne le Lead (déjà ENREGISTRÉ en base), ou None si le visiteur est impossible à identifier
+    (ni téléphone, ni compte connecté) : on ne crée jamais de prospect « Inconnu ».
+
+    Règle de recherche : 1) par téléphone normalisé, 2) sinon par compte utilisateur, 3) sinon on crée.
+    S'il existe déjà, on le COMPLÈTE (e-mail, nom, compte…) sans écraser ce que l'équipe a qualifié.
+    Un prospect « Perdu » qui se manifeste de nouveau repasse en « Nouveau ».
+    """
     phone = normalize_phone(phone) or (normalize_phone(user.phone_number) if user else "")
     lead = None
     if phone:
+        # select_for_update() : VERROUILLE la ligne le temps de la transaction. Si deux visiteurs envoient le même
+        # numéro en même temps, le 2e attend le 1er au lieu de créer un doublon (≈ verrou pessimiste Doctrine).
         lead = Lead.objects.select_for_update().filter(phone_number=phone).order_by("created_at").first()
     if lead is None and user is not None:
         lead = Lead.objects.select_for_update().filter(user=user).order_by("created_at").first()
@@ -95,13 +136,24 @@ def find_or_create_lead(
             lead.assigned_agent_id = prop.assigned_agent_id
     for key, value in (extra or {}).items():
         if value not in (None, ""):
-            setattr(lead, key, value)
+            setattr(lead, key, value)  # setattr(obj, "budget", 5) équivaut à obj.budget = 5 (nom de champ dynamique)
+    # ENREGISTRE : INSERT si c'est un nouveau prospect, UPDATE de toutes les colonnes sinon.
     lead.save()
     return lead
 
 
 def advance_stage(lead: Lead, target: str) -> None:
-    """Fait avancer le lead jusqu'à `target` s'il n'y est pas déjà (jamais de retour en arrière)."""
+    """
+    Place le prospect à l'étape `target` SEULEMENT si c'est plus avancé que son étape actuelle.
+
+        advance_stage(lead, "RDV")   # lead en "CONTACTE"  → devient "RDV"
+        advance_stage(lead, "RDV")   # lead en "VISITE"    → reste "VISITE" (on ne recule jamais)
+        advance_stage(lead, "PERDU") # toujours accepté : « Perdu » est une sortie du pipeline
+
+    Pourquoi : une demande de visite ne doit pas faire repasser en « RDV fixé » un prospect déjà en négociation.
+    Ne retourne rien et n'écrit pas en base : modifie `lead.stage` en mémoire, l'appelant fait lead.save().
+    Pour faire reculer volontairement un prospect, l'équipe le déplace à la main (écran kanban).
+    """
     if target == PipelineStage.PERDU:
         lead.stage = target
         return
@@ -111,12 +163,28 @@ def advance_stage(lead: Lead, target: str) -> None:
 
 
 def rescore(lead: Lead) -> None:
-    """Score d'intention calculé à partir de ce que l'on sait du prospect (cumulatif)."""
+    """
+    Recalcule le SCORE (0–100) et la TEMPÉRATURE du prospect d'après ce que l'on sait de lui.
+
+    Le calcul des points est dans LeadScoringDomainService.calculate_score (scoring_service.py) :
+        budget confirmé +20 · apport confirmé +20 · délai < 3 mois +20 · bien identifié +15
+        · demande de visite +15 · interaction récente (30 jours) +10   → plafonné à 100
+        température : ≥ 90 TRES_CHAUD · ≥ 70 CHAUD · ≥ 40 TIEDE · sinon FROID
+
+    Cette fonction se contente de RASSEMBLER les faits depuis le prospect (lecture), de les passer au calcul,
+    puis de ranger le résultat dans lead.score et lead.temperature. Elle n'écrit PAS en base : appeler lead.save()
+    (ou lead.save(update_fields=["score", "temperature"])) ensuite.
+
+    Le score est « cumulatif » : il repart toujours des faits connus, il ne baisse donc pas à chaque action.
+    À appeler après tout changement qui peut influer : budget, apport, visite demandée, bien consulté, étape…
+    """
     timeframe = (lead.timeframe or "").lower()
     score, temperature = LeadScoringDomainService.calculate_score(
         has_confirmed_budget=bool(lead.budget),
         has_confirmed_down_payment=bool(lead.down_payment and lead.down_payment > 0),
         timeframe_under_3_months=any(m in timeframe for m in SHORT_TIMEFRAME_MARKERS),
+        # lead.inquiries / lead.visits : relations inverses (≈ OneToMany Doctrine). .exists() = SELECT 1 … LIMIT 1,
+        # une requête très légère qui répond seulement « y en a-t-il au moins un ? ».
         has_identified_property=bool(lead.consulted_property_id) or lead.inquiries.exists(),
         has_visit_request=lead.visits.exists(),
         has_recent_interaction=bool(lead.last_interaction_at and (timezone.now() - lead.last_interaction_at).days <= 30)
