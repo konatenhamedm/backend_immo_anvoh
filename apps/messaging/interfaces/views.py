@@ -6,26 +6,33 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.messaging.infrastructure.models import Conversation, ConversationParticipant, Message
 from apps.properties.infrastructure.models import Property
 from apps.users.infrastructure.models import User, UserRole
 from apps.users.interfaces.permissions import is_notary, is_staff_or_agent
-from apps.messaging.infrastructure.models import Conversation, ConversationParticipant, Message
-from .serializers import ConversationSerializer, MessageSerializer, NewMessageSerializer, StartConversationSerializer
+
 from .schemas import UnreadCountSchema
+from .serializers import ConversationSerializer, MessageSerializer, NewMessageSerializer, StartConversationSerializer
 
 
 def _my_conversations(user):
-    return (Conversation.objects.filter(participants__user=user)
-            .select_related('property')
-            .prefetch_related(Prefetch('participants', queryset=ConversationParticipant.objects.select_related('user')), 'messages')
-            .distinct())
+    return (
+        Conversation.objects.filter(participants__user=user)
+        .select_related("property")
+        .prefetch_related(
+            Prefetch("participants", queryset=ConversationParticipant.objects.select_related("user")), "messages"
+        )
+        .distinct()
+    )
 
 
 def _team_contact():
     """Interlocuteur par défaut côté Thiebbro : un conseiller actif, sinon un administrateur."""
-    return (User.objects.filter(is_active=True, role=UserRole.AGENT).order_by('id').first()
-            or User.objects.filter(is_active=True, role=UserRole.ADMIN).order_by('id').first()
-            or User.objects.filter(is_active=True, is_staff=True).order_by('id').first())
+    return (
+        User.objects.filter(is_active=True, role=UserRole.AGENT).order_by("id").first()
+        or User.objects.filter(is_active=True, role=UserRole.ADMIN).order_by("id").first()
+        or User.objects.filter(is_active=True, is_staff=True).order_by("id").first()
+    )
 
 
 def _resolve_recipient(sender, prop, recipient_id):
@@ -37,9 +44,13 @@ def _resolve_recipient(sender, prop, recipient_id):
     """
     if recipient_id:
         recipient = get_object_or_404(User, id=recipient_id, is_active=True)
-        allowed = (is_staff_or_agent(sender) or is_notary(sender)
-                   or recipient.role in (UserRole.AGENT, UserRole.ADMIN, UserRole.NOTAIRE) or recipient.is_staff
-                   or (prop is not None and recipient.id in (prop.owner_id, prop.assigned_agent_id)))
+        allowed = (
+            is_staff_or_agent(sender)
+            or is_notary(sender)
+            or recipient.role in (UserRole.AGENT, UserRole.ADMIN, UserRole.NOTAIRE)
+            or recipient.is_staff
+            or (prop is not None and recipient.id in (prop.owner_id, prop.assigned_agent_id))
+        )
         if not allowed:
             return None, "Vous ne pouvez pas contacter ce compte directement."
         return recipient, None
@@ -55,37 +66,50 @@ class ConversationListView(APIView):
     @extend_schema(responses={200: ConversationSerializer(many=True)}, summary="Mes conversations")
     def get(self, request):
         qs = _my_conversations(request.user)
-        return Response(ConversationSerializer(qs, many=True, context={'request': request}).data)
+        return Response(ConversationSerializer(qs, many=True, context={"request": request}).data)
 
-    @extend_schema(request=StartConversationSerializer, responses={201: ConversationSerializer},
-                   summary="Démarrer (ou reprendre) une conversation, éventuellement à propos d'un bien")
+    @extend_schema(
+        request=StartConversationSerializer,
+        responses={201: ConversationSerializer},
+        summary="Démarrer (ou reprendre) une conversation, éventuellement à propos d'un bien",
+    )
     def post(self, request):
         serializer = StartConversationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        prop = get_object_or_404(Property, id=data['property_id']) if data.get('property_id') else None
-        recipient, error = _resolve_recipient(request.user, prop, data.get('recipient_id'))
+        prop = get_object_or_404(Property, id=data["property_id"]) if data.get("property_id") else None
+        recipient, error = _resolve_recipient(request.user, prop, data.get("recipient_id"))
         if error:
-            return Response({'detail': error}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": error}, status=status.HTTP_403_FORBIDDEN)
         if recipient is None or recipient.id == request.user.id:
-            return Response({'detail': "Aucun interlocuteur disponible pour le moment."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Aucun interlocuteur disponible pour le moment."}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Reprend la conversation existante entre ces deux personnes sur ce bien.
-        existing = (Conversation.objects.filter(property=prop, participants__user=request.user)
-                    .filter(participants__user=recipient)
-                    .annotate(n=Count('participants', distinct=True)).filter(n=2).first())
+        existing = (
+            Conversation.objects.filter(property=prop, participants__user=request.user)
+            .filter(participants__user=recipient)
+            .annotate(n=Count("participants", distinct=True))
+            .filter(n=2)
+            .first()
+        )
         conversation = existing or Conversation.objects.create(
-            property=prop, subject=data.get('subject') or (prop.title if prop else 'Question à l\'équipe Thiebbro')
+            property=prop, subject=data.get("subject") or (prop.title if prop else "Question à l'équipe Thiebbro")
         )
         if not existing:
-            ConversationParticipant.objects.bulk_create([
-                ConversationParticipant(conversation=conversation, user=request.user, last_read_at=timezone.now()),
-                ConversationParticipant(conversation=conversation, user=recipient),
-            ])
-        Message.objects.create(conversation=conversation, sender=request.user, body=data['body'])
-        conversation.save(update_fields=['updated_at'])
+            ConversationParticipant.objects.bulk_create(
+                [
+                    ConversationParticipant(conversation=conversation, user=request.user, last_read_at=timezone.now()),
+                    ConversationParticipant(conversation=conversation, user=recipient),
+                ]
+            )
+        Message.objects.create(conversation=conversation, sender=request.user, body=data["body"])
+        conversation.save(update_fields=["updated_at"])
         conversation = _my_conversations(request.user).get(id=conversation.id)
-        return Response(ConversationSerializer(conversation, context={'request': request}).data, status=status.HTTP_201_CREATED)
+        return Response(
+            ConversationSerializer(conversation, context={"request": request}).data, status=status.HTTP_201_CREATED
+        )
 
 
 @extend_schema(tags=["Messagerie"])
@@ -93,32 +117,40 @@ class ConversationMessagesView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def _membership(self, request, id):
-        return get_object_or_404(ConversationParticipant.objects.select_related('conversation'), conversation_id=id, user=request.user)
+        return get_object_or_404(
+            ConversationParticipant.objects.select_related("conversation"), conversation_id=id, user=request.user
+        )
 
-    @extend_schema(responses={200: MessageSerializer(many=True)}, summary="Messages d'une conversation (les marque comme lus)")
+    @extend_schema(
+        responses={200: MessageSerializer(many=True)}, summary="Messages d'une conversation (les marque comme lus)"
+    )
     def get(self, request, id):
         membership = self._membership(request, id)
         membership.last_read_at = timezone.now()
-        membership.save(update_fields=['last_read_at'])
-        messages = membership.conversation.messages.select_related('sender')
-        return Response(MessageSerializer(messages, many=True, context={'request': request}).data)
+        membership.save(update_fields=["last_read_at"])
+        messages = membership.conversation.messages.select_related("sender")
+        return Response(MessageSerializer(messages, many=True, context={"request": request}).data)
 
     @extend_schema(request=NewMessageSerializer, responses={201: MessageSerializer}, summary="Envoyer un message")
     def post(self, request, id):
         membership = self._membership(request, id)
         serializer = NewMessageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        message = Message.objects.create(conversation=membership.conversation, sender=request.user, body=serializer.validated_data['body'])
+        message = Message.objects.create(
+            conversation=membership.conversation, sender=request.user, body=serializer.validated_data["body"]
+        )
         membership.last_read_at = timezone.now()
-        membership.save(update_fields=['last_read_at'])
-        membership.conversation.save(update_fields=['updated_at'])
-        return Response(MessageSerializer(message, context={'request': request}).data, status=status.HTTP_201_CREATED)
+        membership.save(update_fields=["last_read_at"])
+        membership.conversation.save(update_fields=["updated_at"])
+        return Response(MessageSerializer(message, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
 
-@extend_schema(tags=["Messagerie"], summary="Nombre total de messages non lus (badge du menu)", responses={200: UnreadCountSchema})
+@extend_schema(
+    tags=["Messagerie"], summary="Nombre total de messages non lus (badge du menu)", responses={200: UnreadCountSchema}
+)
 class UnreadCountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        data = ConversationSerializer(_my_conversations(request.user), many=True, context={'request': request}).data
-        return Response({'unread': sum(c['unread_count'] for c in data)})
+        data = ConversationSerializer(_my_conversations(request.user), many=True, context={"request": request}).data
+        return Response({"unread": sum(c["unread_count"] for c in data)})

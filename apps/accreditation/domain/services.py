@@ -6,14 +6,19 @@ Cycle d'un bien publié par un propriétaire :
   → bien publié (DISPONIBLE) avec badge VERIFIE / VERIFICATION_RENFORCEE.
 Un refus remet le bien en brouillon avec un motif ; le propriétaire corrige et redépose.
 """
+
 from django.db import transaction
 from django.utils import timezone
 
-from apps.properties.infrastructure.models import Property, PropertyStatus, VerificationStatus
 from apps.accreditation.infrastructure.models import (
-    AccreditationFile, AccreditationStatus, AccreditationStep, CertificationLevel,
-    DocumentStatus, REQUIRED_DOCUMENTS,
+    REQUIRED_DOCUMENTS,
+    AccreditationFile,
+    AccreditationStatus,
+    AccreditationStep,
+    CertificationLevel,
+    DocumentStatus,
 )
+from apps.properties.infrastructure.models import Property, PropertyStatus, VerificationStatus
 
 
 class AccreditationError(Exception):
@@ -26,13 +31,13 @@ def ensure_file(prop: Property) -> AccreditationFile:
     if not created and file.status == AccreditationStatus.REFUSE:
         file.status = AccreditationStatus.EN_COURS
         file.step = AccreditationStep.DEPOT
-        file.refusal_reason = ''
-        file.save(update_fields=['status', 'step', 'refusal_reason', 'updated_at'])
+        file.refusal_reason = ""
+        file.save(update_fields=["status", "step", "refusal_reason", "updated_at"])
     if prop.verification_status not in (VerificationStatus.VERIFIE, VerificationStatus.VERIFICATION_RENFORCEE):
         prop.verification_status = VerificationStatus.EN_ATTENTE
         if prop.status == PropertyStatus.BROUILLON:
             prop.status = PropertyStatus.EN_ATTENTE
-        prop.save(update_fields=['verification_status', 'status', 'updated_at'])
+        prop.save(update_fields=["verification_status", "status", "updated_at"])
     return file
 
 
@@ -51,7 +56,7 @@ def advance(file: AccreditationFile) -> AccreditationFile:
     if file.step >= AccreditationStep.CERTIFICATION:
         raise AccreditationError("Dernière étape atteinte : certifiez ou refusez le dossier.")
     file.step += 1
-    file.save(update_fields=['step', 'updated_at'])
+    file.save(update_fields=["step", "updated_at"])
     return file
 
 
@@ -74,7 +79,7 @@ def certify(file: AccreditationFile, level: str = CertificationLevel.VERIFIE) ->
     prop.verification_status = level
     if prop.status in (PropertyStatus.BROUILLON, PropertyStatus.EN_ATTENTE):
         prop.status = PropertyStatus.DISPONIBLE
-    prop.save(update_fields=['verification_status', 'status', 'updated_at'])
+    prop.save(update_fields=["verification_status", "status", "updated_at"])
     return file
 
 
@@ -85,10 +90,10 @@ def refuse(file: AccreditationFile, reason: str) -> AccreditationFile:
         raise AccreditationError("Indiquez le motif du refus.")
     file.status = AccreditationStatus.REFUSE
     file.refusal_reason = reason.strip()
-    file.save(update_fields=['status', 'refusal_reason', 'updated_at'])
+    file.save(update_fields=["status", "refusal_reason", "updated_at"])
 
     prop = file.property
     prop.verification_status = VerificationStatus.REFUSE
     prop.status = PropertyStatus.BROUILLON
-    prop.save(update_fields=['verification_status', 'status', 'updated_at'])
+    prop.save(update_fields=["verification_status", "status", "updated_at"])
     return file

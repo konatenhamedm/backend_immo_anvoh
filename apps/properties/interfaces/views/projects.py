@@ -19,16 +19,16 @@ from ..serializers import (
 @extend_schema(tags=["Programmes Neufs"])
 class DevelopmentProjectListView(generics.ListCreateAPIView):
     permission_classes = [ReadOnlyOr(IsStaffOrAgent)]
-    queryset = DevelopmentProject.objects.prefetch_related('lots')
+    queryset = DevelopmentProject.objects.prefetch_related("lots")
     serializer_class = DevelopmentProjectSerializer
 
 
 @extend_schema(tags=["Programmes Neufs"])
 class DevelopmentProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [ReadOnlyOr(IsStaffOrAgent)]
-    queryset = DevelopmentProject.objects.prefetch_related('lots')
+    queryset = DevelopmentProject.objects.prefetch_related("lots")
     serializer_class = DevelopmentProjectSerializer
-    lookup_field = 'id'
+    lookup_field = "id"
 
 
 @extend_schema(tags=["Programmes Neufs"])
@@ -38,10 +38,10 @@ class ProjectLotListCreateView(generics.ListCreateAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        return ProjectLot.objects.filter(project_id=self.kwargs.get('project_id'))
+        return ProjectLot.objects.filter(project_id=self.kwargs.get("project_id"))
 
     def perform_create(self, serializer):
-        serializer.save(project=get_object_or_404(DevelopmentProject, id=self.kwargs.get('project_id')))
+        serializer.save(project=get_object_or_404(DevelopmentProject, id=self.kwargs.get("project_id")))
 
 
 @extend_schema(tags=["Programmes Neufs"])
@@ -49,4 +49,4 @@ class ProjectLotDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [ReadOnlyOr(IsStaffOrAgent)]
     queryset = ProjectLot.objects.all()
     serializer_class = ProjectLotSerializer
-    lookup_field = 'id'
+    lookup_field = "id"

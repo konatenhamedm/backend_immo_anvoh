@@ -3,7 +3,6 @@
 from drf_spectacular.utils import inline_serializer
 from rest_framework import serializers
 
-
 # Une seule classe par composant : réutiliser la même classe évite les doublons de noms dans le schéma.
 _MonthlyPoint = type(
     inline_serializer(

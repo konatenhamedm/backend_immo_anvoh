@@ -1,5 +1,6 @@
 from typing import Tuple
 
+
 class LeadScoringDomainService:
     """
     Règles métier pures de scoring automatique pour THIEBBRO IMMO (Écran 27).
@@ -19,7 +20,7 @@ class LeadScoringDomainService:
         timeframe_under_3_months: bool,
         has_identified_property: bool,
         has_visit_request: bool,
-        has_recent_interaction: bool = True
+        has_recent_interaction: bool = True,
     ) -> Tuple[int, str]:
         score = 0
         if has_confirmed_budget:
@@ -40,12 +41,12 @@ class LeadScoringDomainService:
 
         # Détermination de la température commerciale
         if score >= 90:
-            temperature = "TRES_CHAUD" # 90-100 : Très chaud
+            temperature = "TRES_CHAUD"  # 90-100 : Très chaud
         elif score >= 70:
-            temperature = "CHAUD"      # 70-89 : Chaud
+            temperature = "CHAUD"  # 70-89 : Chaud
         elif score >= 40:
-            temperature = "TIEDE"      # 40-69 : Tiède
+            temperature = "TIEDE"  # 40-69 : Tiède
         else:
-            temperature = "FROID"      # 0-39 : Froid
+            temperature = "FROID"  # 0-39 : Froid
 
         return score, temperature

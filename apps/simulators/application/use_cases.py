@@ -1,14 +1,15 @@
 from apps.simulators.domain.entities import (
+    BorrowingCapacityInput,
+    BorrowingCapacityResult,
     InvestmentSimulationInput,
     InvestmentSimulationResult,
-    BorrowingCapacityInput,
-    BorrowingCapacityResult
 )
 from apps.simulators.domain.services import FinancialCalculationDomainService
 
+
 class CalculateInvestmentYieldUseCase:
     """Use Case : Calculer la rentabilité financière et le cash-flow d'un investissement."""
-    
+
     def __init__(self, calculation_service: FinancialCalculationDomainService = None):
         self.calculation_service = calculation_service or FinancialCalculationDomainService()
 

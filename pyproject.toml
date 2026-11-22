@@ -1,0 +1,26 @@
+# Formatage et analyse statique du code Python avec Ruff (https://docs.astral.sh/ruff/).
+#   ruff format .          # reformate (équivalent de PHP-CS-Fixer)
+#   ruff check .           # signale les problèmes (équivalent de PHPStan niveau léger) ; --fix corrige l'automatique
+#   ruff check --select I --fix .   # ne range que les imports
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["admin-web", "**/migrations/*", "media", "staticfiles"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+# E/W = style pycodestyle, F = erreurs réelles (import inutilisé, nom indéfini), I = tri des imports.
+select = ["E", "F", "W", "I"]
+# E501 (ligne trop longue) : c'est le formateur qui gère la mise en page ; il ne coupe pas les longues chaînes.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Les models.py du projet RÉ-EXPORTENT les modèles de infrastructure/ : Django les y découvre. Ne jamais les « nettoyer ».
+"apps/*/models.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "config"]

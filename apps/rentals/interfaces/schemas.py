@@ -4,9 +4,13 @@ from drf_spectacular.utils import inline_serializer
 from rest_framework import serializers
 
 from apps.properties.interfaces.schemas import monthly_points
+
 from .serializers import OwnerPayoutSerializer
 
-_money = lambda: serializers.DecimalField(max_digits=14, decimal_places=2)
+
+def _money():
+    return serializers.DecimalField(max_digits=14, decimal_places=2)
+
 
 RentalSummarySchema = inline_serializer(
     "RentalSummary",

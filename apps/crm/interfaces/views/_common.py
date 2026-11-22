@@ -10,8 +10,10 @@ def _user(request):
 
 
 def _public_property(property_id):
-    return get_object_or_404(Property.objects.select_related('assigned_agent'), id=property_id, status__in=PUBLIC_STATUSES)
+    return get_object_or_404(
+        Property.objects.select_related("assigned_agent"), id=property_id, status__in=PUBLIC_STATUSES
+    )
 
 
 # Relations lues par PropertyCardSerializer pour chaque bien : à charger d'un coup (sinon une requête par ligne).
-PROPERTY_CARD_RELATED = ('property__owner', 'property__assigned_agent', 'property__accreditation__notary')
+PROPERTY_CARD_RELATED = ("property__owner", "property__assigned_agent", "property__accreditation__notary")

@@ -56,7 +56,7 @@ class GlobalSearchTests(TestCase):
         r = client_for(self.admin).get(self.URL, {"q": "zéph"})
         self.assertEqual(r.status_code, 200)
         self.assertEqual([p["title"] for p in r.data["properties"]], ["Villa Zéphyr"], "les biens archivés sont exclus")
-        self.assertEqual([l["full_name"] for l in r.data["leads"]], ["Zéphyrine Koffi"])
+        self.assertEqual([lead["full_name"] for lead in r.data["leads"]], ["Zéphyrine Koffi"])
         self.assertEqual(r.data["users"], [])
         users = client_for(self.admin).get(self.URL, {"q": "agent@test"})
         self.assertEqual([u["email"] for u in users.data["users"]], ["agent@test.ci"])

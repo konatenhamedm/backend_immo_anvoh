@@ -7,6 +7,7 @@ Permissions par rôle, partagées par toutes les apps.
 - IsNotaryOrAdmin   : notaires partenaires et administrateurs (file d'accréditation)
 - ReadOnlyOr(perm)  : lecture publique, écriture réservée à `perm`
 """
+
 from rest_framework import permissions
 
 from apps.users.infrastructure.models import UserRole
@@ -60,7 +61,7 @@ def ReadOnlyOr(write_permission):
     """Lecture ouverte à tous ; écriture soumise à `write_permission`."""
 
     class _ReadOnlyOr(permissions.BasePermission):
-        message = getattr(write_permission, 'message', 'Action non autorisée.')
+        message = getattr(write_permission, "message", "Action non autorisée.")
 
         def has_permission(self, request, view):
             if request.method in permissions.SAFE_METHODS:

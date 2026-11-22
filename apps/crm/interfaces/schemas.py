@@ -3,11 +3,15 @@
 from drf_spectacular.utils import inline_serializer
 from rest_framework import serializers
 
-from apps.properties.interfaces.schemas import monthly_points
 from apps.crm.infrastructure.models import PipelineStage
+from apps.properties.interfaces.schemas import monthly_points
+
 from .serializers import LeadKanbanItemSerializer
 
-_money = lambda: serializers.DecimalField(max_digits=16, decimal_places=2)
+
+def _money():
+    return serializers.DecimalField(max_digits=16, decimal_places=2)
+
 
 AdminDashboardSchema = inline_serializer(
     "AdminDashboard",

@@ -5,7 +5,10 @@ from rest_framework import serializers
 
 from .serializers import InvestmentDocumentSerializer, ScheduleEntrySerializer, SubscriptionSerializer
 
-_money = lambda: serializers.DecimalField(max_digits=16, decimal_places=2)
+
+def _money():
+    return serializers.DecimalField(max_digits=16, decimal_places=2)
+
 
 InvestmentStatsSchema = inline_serializer(
     "InvestmentStats",

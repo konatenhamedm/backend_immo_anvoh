@@ -1,13 +1,31 @@
 from .infrastructure.models import (
-    Property, PropertyImage, PropertyFavorite,
-    DevelopmentProject, ProjectLot,
-    PropertyType, PropertyTypology, PropertyGoal, PropertyStatus, VerificationStatus,
-    TransactionType, TitleDeedType, PUBLIC_STATUSES
+    PUBLIC_STATUSES,
+    DevelopmentProject,
+    ProjectLot,
+    Property,
+    PropertyFavorite,
+    PropertyGoal,
+    PropertyImage,
+    PropertyStatus,
+    PropertyType,
+    PropertyTypology,
+    TitleDeedType,
+    TransactionType,
+    VerificationStatus,
 )
 
 __all__ = [
-    'Property', 'PropertyImage', 'PropertyFavorite',
-    'DevelopmentProject', 'ProjectLot',
-    'PropertyType', 'PropertyTypology', 'PropertyGoal', 'PropertyStatus', 'VerificationStatus',
-    'TransactionType', 'TitleDeedType', 'PUBLIC_STATUSES'
+    "Property",
+    "PropertyImage",
+    "PropertyFavorite",
+    "DevelopmentProject",
+    "ProjectLot",
+    "PropertyType",
+    "PropertyTypology",
+    "PropertyGoal",
+    "PropertyStatus",
+    "VerificationStatus",
+    "TransactionType",
+    "TitleDeedType",
+    "PUBLIC_STATUSES",
 ]
