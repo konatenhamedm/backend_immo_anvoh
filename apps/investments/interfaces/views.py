@@ -16,6 +16,7 @@ from apps.investments.domain import services
 from apps.investments.infrastructure.models import (
     EntryKind, EntryStatus, InvestmentDocument, InvestmentPlan, PlanStatus, ScheduleEntry, Subscription, SubscriptionStatus,
 )
+from .schemas import InvestmentStatsSchema, MyInvestmentsSchema
 from .serializers import (
     ConfirmPaymentSerializer, InvestmentDocumentSerializer, InvestmentPlanAdminSerializer, InvestmentPlanSerializer,
     RevenueEntrySerializer, ScheduleEntrySerializer, SubscribeSerializer, SubscriptionAdminUpdateSerializer,
@@ -63,7 +64,8 @@ class SubscribeView(APIView):
         return Response(SubscriptionSerializer(_subs_qs().get(id=sub.id), context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
-@extend_schema(tags=["Investissement"], summary="Mon portefeuille : synthèse, plans, échéancier et documents")
+@extend_schema(tags=["Investissement"], summary="Mon portefeuille : synthèse, plans, échéancier et documents",
+               responses={200: MyInvestmentsSchema})
 class MyInvestmentsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -111,7 +113,8 @@ class PlanAdminDetailView(generics.RetrieveUpdateAPIView):
         return _plans_with_stats()
 
 
-@extend_schema(tags=["Back-office Investissement"], summary="Indicateurs : encours, souscripteurs, souscriptions du mois")
+@extend_schema(tags=["Back-office Investissement"], summary="Indicateurs : encours, souscripteurs, souscriptions du mois",
+               responses={200: InvestmentStatsSchema})
 class InvestmentStatsView(APIView):
     permission_classes = [IsAdminRole]
 
@@ -186,7 +189,9 @@ class RevenueEntryCreateView(APIView):
         return Response(ScheduleEntrySerializer(entry).data, status=status.HTTP_201_CREATED)
 
 
-@extend_schema(tags=["Back-office Investissement"], summary="Déposer un document pour le souscripteur (multipart : title, file)")
+@extend_schema(tags=["Back-office Investissement"], summary="Déposer un document pour le souscripteur (multipart : title, file)",
+               request={'multipart/form-data': {'type': 'object', 'required': ['title', 'file'], 'properties': {'title': {'type': 'string'}, 'file': {'type': 'string', 'format': 'binary'}}}},
+               responses={201: InvestmentDocumentSerializer})
 class InvestmentDocumentUploadView(APIView):
     permission_classes = [IsAdminRole]
     parser_classes = [MultiPartParser, FormParser]

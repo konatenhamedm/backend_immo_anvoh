@@ -147,7 +147,11 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
     ),
-    'DEFAULT_THROTTLE_RATES': {'anon': '120/min', 'user': '600/min'},
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '120/min', 'user': '600/min',
+        'auth': '20/min',          # connexion, inscription, changement de mot de passe
+        'public_forms': '10/min',  # formulaires publics (contact, WhatsApp, visite, « Trouver mon bien »)
+    },
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
@@ -173,6 +177,25 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
+    'POSTPROCESSING_HOOKS': [
+        'drf_spectacular.hooks.postprocess_schema_enums',
+        'config.openapi.mark_response_fields_required',
+    ],
+    # Noms explicites pour les énumérations (sinon StatusCb7Enum… dans les types générés côté front).
+    'ENUM_NAME_OVERRIDES': {
+        'PropertyStatusEnum': 'apps.properties.infrastructure.models.PropertyStatus',
+        'VerificationStatusEnum': 'apps.properties.infrastructure.models.VerificationStatus',
+        'VisitStatusEnum': 'apps.crm.infrastructure.models.VisitRequestStatus',
+        'AccreditationStatusEnum': 'apps.accreditation.infrastructure.models.AccreditationStatus',
+        'DocumentStatusEnum': 'apps.accreditation.infrastructure.models.DocumentStatus',
+        'PlanStatusEnum': 'apps.investments.infrastructure.models.PlanStatus',
+        'SubscriptionStatusEnum': 'apps.investments.infrastructure.models.SubscriptionStatus',
+        'EntryStatusEnum': 'apps.investments.infrastructure.models.EntryStatus',
+        'RentStatusEnum': 'apps.rentals.infrastructure.models.RentStatus',
+        'PayoutStatusEnum': 'apps.rentals.infrastructure.models.PayoutStatus',
+        'IdentityStatusEnum': 'apps.users.infrastructure.models.IdentityStatus',
+        'UserRoleEnum': 'apps.users.infrastructure.models.UserRole',
+    },
 }
 
 # CORS : uniquement les origines déclarées (site Next.js, back-office). Plus d'ouverture totale, même en DEBUG.

@@ -1,4 +1,5 @@
 from django.core.exceptions import ObjectDoesNotExist
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from apps.properties.infrastructure.models import (
     Property, PropertyImage, PropertyFavorite,
@@ -54,6 +55,7 @@ class PropertyImageSerializer(serializers.ModelSerializer):
         model = PropertyImage
         fields = ['id', 'url', 'caption', 'is_cover', 'order']
 
+    @extend_schema_field({'type': 'string', 'format': 'uri', 'nullable': True})
     def get_url(self, obj):
         return obj.url(self.context.get('request'))
 
@@ -82,6 +84,7 @@ class DevelopmentProjectSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['slug']
 
+    @extend_schema_field({'type': 'string', 'format': 'uri', 'nullable': True})
     def get_cover(self, obj):
         if obj.cover_image:
             request = self.context.get('request')
@@ -126,10 +129,12 @@ class PropertyCardSerializer(serializers.ModelSerializer):
             'owner_name', 'notary_name', 'tour_scan_requested', 'tour_scan_scheduled_at', 'tour_scan_technician', 'created_at'
         ]
 
+    @extend_schema_field({'type': 'string', 'format': 'uri', 'nullable': True})
     def get_cover_image(self, obj):
         imgs = _images(obj)
         return imgs[0].url(self.context.get('request')) if imgs else None
 
+    @extend_schema_field({'type': 'array', 'items': {'type': 'string', 'format': 'uri'}})
     def get_image_urls(self, obj):
         request = self.context.get('request')
         return [u for u in (img.url(request) for img in _images(obj)) if u]
@@ -140,16 +145,19 @@ class PropertyCardSerializer(serializers.ModelSerializer):
     def get_has_virtual_tour(self, obj) -> bool:
         return bool(obj.virtual_tour_url)
 
-    def get_amenities(self, obj) -> list:
+    def get_amenities(self, obj) -> list[str]:
         return [label for field, label in AMENITY_FLAGS if getattr(obj, field)] + list(obj.amenities_extra or [])
 
+    @extend_schema_field({'type': 'string', 'nullable': True})
     def get_owner_name(self, obj):
         return f"{obj.owner.first_name} {obj.owner.last_name}".strip() if obj.owner_id and obj.owner else None
 
+    @extend_schema_field({'type': 'string', 'nullable': True})
     def get_notary_name(self, obj):
         file = _accreditation(obj)
         return file.notary.full_name if file and file.notary_id else None
 
+    @extend_schema_field({'type': 'integer', 'nullable': True})
     def get_leads_count(self, obj):
         # Renseigné uniquement quand la vue annote le queryset (listes propriétaire / back-office).
         return getattr(obj, 'leads_count', None)
@@ -162,6 +170,7 @@ class PropertyDetailSerializer(PropertyCardSerializer):
     development_project = serializers.SerializerMethodField()
     accreditation = serializers.SerializerMethodField()
     agent_name = serializers.SerializerMethodField()
+    amenities_extra = serializers.ListField(child=serializers.CharField(max_length=100), required=False)
 
     class Meta(PropertyCardSerializer.Meta):
         fields = PropertyCardSerializer.Meta.fields + [
@@ -171,10 +180,12 @@ class PropertyDetailSerializer(PropertyCardSerializer):
             'tour_scan_technician', 'images', 'verification_status_display', 'development_project', 'accreditation', 'agent_name', 'updated_at',
         ]
 
+    @extend_schema_field({'type': 'object', 'nullable': True, 'properties': {'id': {'type': 'string'}, 'name': {'type': 'string'}, 'slug': {'type': 'string'}}})
     def get_development_project(self, obj):
         p = obj.development_project
         return {'id': str(p.id), 'name': p.name, 'slug': p.slug} if p else None
 
+    @extend_schema_field({'type': 'object', 'nullable': True, 'properties': {'step': {'type': 'integer'}, 'step_label': {'type': 'string'}, 'status': {'type': 'string'}, 'notary': {'type': 'string', 'nullable': True}, 'notary_office': {'type': 'string', 'nullable': True}, 'certified_at': {'type': 'string', 'format': 'date-time', 'nullable': True}}})
     def get_accreditation(self, obj):
         file = _accreditation(obj)
         if not file:
@@ -186,6 +197,7 @@ class PropertyDetailSerializer(PropertyCardSerializer):
             'certified_at': file.certified_at,
         }
 
+    @extend_schema_field({'type': 'string', 'nullable': True})
     def get_agent_name(self, obj):
         a = obj.assigned_agent
         return f"{a.first_name} {a.last_name}".strip() if a else None
@@ -194,6 +206,7 @@ class PropertyDetailSerializer(PropertyCardSerializer):
 class PropertyWriteSerializer(serializers.ModelSerializer):
     """Création / modification d'un bien (propriétaire ou équipe). Les photos externes passent par `image_urls`."""
     image_urls = serializers.ListField(child=serializers.URLField(max_length=500), required=False, write_only=True)
+    amenities_extra = serializers.ListField(child=serializers.CharField(max_length=100), required=False)
 
     class Meta:
         model = Property
@@ -293,5 +306,6 @@ class PropertyFavoriteAdminSerializer(serializers.ModelSerializer):
             'property_commune', 'created_at'
         ]
 
+    @extend_schema_field({'type': 'string'})
     def get_user_name(self, obj):
         return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.user.email

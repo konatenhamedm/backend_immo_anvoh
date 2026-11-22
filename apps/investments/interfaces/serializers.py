@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.investments.infrastructure.models import (
@@ -9,6 +10,7 @@ from apps.investments.domain.services import paid_amount
 class InvestmentPlanSerializer(serializers.ModelSerializer):
     risk_display = serializers.CharField(source='get_risk_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    features = serializers.ListField(child=serializers.CharField(), required=False)
 
     class Meta:
         model = InvestmentPlan
@@ -59,6 +61,7 @@ class InvestmentDocumentSerializer(serializers.ModelSerializer):
         model = InvestmentDocument
         fields = ['id', 'title', 'file_url', 'created_at']
 
+    @extend_schema_field({'type': 'string', 'format': 'uri', 'nullable': True})
     def get_file_url(self, obj):
         request = self.context.get('request')
         return request.build_absolute_uri(obj.file.url) if request and obj.file else None
@@ -80,13 +83,16 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             'subscriber', 'created_at', 'activated_at',
         ]
 
+    @extend_schema_field({'type': 'string', 'format': 'decimal'})
     def get_paid(self, obj):
         return paid_amount(obj)
 
+    @extend_schema_field(ScheduleEntrySerializer(allow_null=True))
     def get_next_entry(self, obj):
         upcoming = sorted((e for e in obj.entries.all() if e.status in ('A_VENIR', 'EN_VALIDATION', 'PROGRAMME')), key=lambda e: e.due_date)
         return ScheduleEntrySerializer(upcoming[0]).data if upcoming else None
 
+    @extend_schema_field({'type': 'object', 'nullable': False, 'properties': {'id': {'type': 'integer'}, 'name': {'type': 'string'}, 'email': {'type': 'string'}}})
     def get_subscriber(self, obj):
         u = obj.user
         return {'id': u.id, 'name': f"{u.first_name} {u.last_name}".strip() or u.email, 'email': u.email}

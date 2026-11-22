@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.accreditation.infrastructure.models import (
@@ -32,6 +33,7 @@ class PropertyDocumentSerializer(serializers.ModelSerializer):
         model = PropertyDocument
         fields = ['id', 'doc_type', 'doc_type_display', 'status', 'status_display', 'comment', 'file_url', 'uploaded_at']
 
+    @extend_schema_field({'type': 'string', 'format': 'uri', 'nullable': True})
     def get_file_url(self, obj):
         request = self.context.get('request')
         return request.build_absolute_uri(obj.file.url) if request and obj.file else None
@@ -60,6 +62,7 @@ class AccreditationFileSerializer(serializers.ModelSerializer):
             'documents', 'checklist', 'missing_documents',
         ]
 
+    @extend_schema_field({'type': 'object', 'nullable': False, 'properties': {'id': {'type': 'string'}, 'reference': {'type': 'string'}, 'slug': {'type': 'string'}, 'title': {'type': 'string'}, 'commune': {'type': 'string'}, 'neighborhood': {'type': 'string'}, 'status': {'type': 'string'}, 'cover_image': {'type': 'string', 'nullable': True}}})
     def get_property(self, obj):
         p = obj.property
         cover = next((img for img in p.images.all() if img.is_cover), None) or next(iter(p.images.all()), None)
@@ -69,14 +72,17 @@ class AccreditationFileSerializer(serializers.ModelSerializer):
             'cover_image': cover.url(self.context.get('request')) if cover else None,
         }
 
+    @extend_schema_field({'type': 'string'})
     def get_owner_name(self, obj):
         owner = obj.property.owner
         return f"{owner.first_name} {owner.last_name}".strip() if owner else 'Thiebbro (mandat)'
 
+    @extend_schema_field({'type': 'object', 'properties': {t: {'type': 'boolean'} for t in ('TITRE', 'IDENTITE', 'PLAN', 'FISCAL')}})
     def get_checklist(self, obj):
         present = {d.doc_type for d in obj.property.documents.all() if d.status != 'REJETE'}
         return {d.value: d.value in present for d in DocumentType}
 
+    @extend_schema_field({'type': 'array', 'items': {'type': 'string'}})
     def get_missing_documents(self, obj):
         return missing_documents(obj)
 

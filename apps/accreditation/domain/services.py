@@ -37,9 +37,8 @@ def ensure_file(prop: Property) -> AccreditationFile:
 
 
 def missing_documents(file: AccreditationFile) -> list[str]:
-    present = set(
-        file.property.documents.exclude(status=DocumentStatus.REJETE).values_list('doc_type', flat=True)
-    )
+    # `.all()` s'appuie sur le prefetch `property__documents` des listes (pas de requête par dossier).
+    present = {d.doc_type for d in file.property.documents.all() if d.status != DocumentStatus.REJETE}
     return [d.value for d in REQUIRED_DOCUMENTS if d.value not in present]
 
 

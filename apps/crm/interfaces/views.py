@@ -5,18 +5,20 @@ from django.db.models import Avg, Count, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.users.interfaces.permissions import IsOwnerRole, IsStaffOrAgent, is_staff_or_agent
+from apps.users.interfaces.throttling import ScopedThrottleMixin
 from apps.properties.infrastructure.models import Property, PropertyStatus, PUBLIC_STATUSES, TransactionType
 from apps.properties.interfaces.serializers import PropertyCardSerializer, favorite_ids_for
 from apps.crm.infrastructure.models import (
     Lead, CRMInteraction, PropertyInquiry, VisitRequest, PipelineStage, LeadSource, VisitRequestStatus, SearchAlert,
 )
 from apps.crm.domain.lead_service import STAGE_ORDER, advance_stage, find_or_create_lead, rescore
+from .schemas import AdminDashboardSchema, GlobalSearchSchema, KanbanSchema
 from .serializers import (
     PropertyInquiryInputSerializer, PropertyInquiryResponseSerializer, WhatsAppClickTrackSerializer,
     WhatsAppClickTrackResponseSerializer, FindMyPropertyInputSerializer, FindMyPropertyResponseSerializer,
@@ -30,6 +32,9 @@ MONTHS_FR = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août',
 TYPE_HINTS = {'villa': 'VILLA', 'duplex': 'DUPLEX', 'terrain': 'TERRAIN', 'immeuble': 'IMMEUBLE', 'maison': 'MAISON',
               'appartement': 'APPARTEMENT', 'f2': 'APPARTEMENT', 'f3': 'APPARTEMENT', 'f4': 'APPARTEMENT', 'meubl': 'RESIDENCE_MEUBLEE'}
 
+# Relations lues par PropertyCardSerializer pour chaque bien : à charger d'un coup (sinon une requête par ligne).
+PROPERTY_CARD_RELATED = ('property__owner', 'property__assigned_agent', 'property__accreditation__notary')
+
 
 def _user(request):
     return request.user if request.user.is_authenticated else None
@@ -41,7 +46,8 @@ def _public_property(property_id):
 
 @extend_schema(tags=["CRM & Écrans"], summary="Écran 08 : Demande d'informations sur un bien",
                request=PropertyInquiryInputSerializer, responses={201: PropertyInquiryResponseSerializer})
-class PropertyInquiryView(APIView):
+class PropertyInquiryView(ScopedThrottleMixin, APIView):
+    throttle_scope = 'public_forms'
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -65,7 +71,8 @@ class PropertyInquiryView(APIView):
 @extend_schema(tags=["CRM & Écrans"], summary="Écran 09 : Clic sur le bouton WhatsApp",
                description="Crée ou complète le lead si le visiteur est identifiable (compte ou numéro). Sinon, rien n'est enregistré.",
                request=WhatsAppClickTrackSerializer, responses={200: WhatsAppClickTrackResponseSerializer})
-class WhatsAppClickTrackView(APIView):
+class WhatsAppClickTrackView(ScopedThrottleMixin, APIView):
+    throttle_scope = 'public_forms'
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -86,7 +93,8 @@ class WhatsAppClickTrackView(APIView):
 
 @extend_schema(tags=["CRM & Écrans"], summary="Écran 10 : « Trouver mon bien » (questionnaire 7 étapes)",
                request=FindMyPropertyInputSerializer, responses={200: FindMyPropertyResponseSerializer})
-class FindMyPropertyView(APIView):
+class FindMyPropertyView(ScopedThrottleMixin, APIView):
+    throttle_scope = 'public_forms'
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -129,7 +137,8 @@ class FindMyPropertyView(APIView):
 
 @extend_schema(tags=["CRM & Écrans"], summary="Écran 16 : Prise de rendez-vous / visite",
                request=ScheduleVisitInputSerializer, responses={201: ScheduleVisitResponseSerializer})
-class ScheduleVisitView(APIView):
+class ScheduleVisitView(ScopedThrottleMixin, APIView):
+    throttle_scope = 'public_forms'
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -164,8 +173,8 @@ class MyRequestsView(APIView):
     def get(self, request):
         user = request.user
         c = {'request': request, 'favorite_ids': favorite_ids_for(request)}
-        inquiries = PropertyInquiry.objects.filter(user=user).select_related('property', 'lead').prefetch_related('property__images')
-        visits = VisitRequest.objects.filter(Q(user=user) | Q(lead__user=user)).select_related('property', 'lead').prefetch_related('property__images').distinct()
+        inquiries = PropertyInquiry.objects.filter(user=user).select_related(*PROPERTY_CARD_RELATED, 'lead').prefetch_related('property__images')
+        visits = VisitRequest.objects.filter(Q(user=user) | Q(lead__user=user)).select_related(*PROPERTY_CARD_RELATED, 'lead').prefetch_related('property__images').distinct()
         leads = list(Lead.objects.filter(user=user).select_related('assigned_agent'))
         best = max(leads, key=lambda l: STAGE_ORDER.index(l.stage) if l.stage in STAGE_ORDER else -1, default=None)
         return Response({
@@ -205,7 +214,7 @@ class OwnerVisitListView(generics.ListAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        qs = VisitRequest.objects.filter(property__owner=self.request.user).select_related('property', 'lead').prefetch_related('property__images')
+        qs = VisitRequest.objects.filter(property__owner=self.request.user).select_related(*PROPERTY_CARD_RELATED, 'lead').prefetch_related('property__images')
         if self.request.query_params.get('status'):
             qs = qs.filter(status=self.request.query_params['status'])
         return qs
@@ -217,7 +226,7 @@ class OwnerVisitUpdateView(APIView):
     permission_classes = [IsOwnerRole]
 
     def patch(self, request, id):
-        qs = VisitRequest.objects.select_related('property', 'lead')
+        qs = VisitRequest.objects.select_related(*PROPERTY_CARD_RELATED, 'lead')
         visit = get_object_or_404(qs if is_staff_or_agent(request.user) else qs.filter(property__owner=request.user), id=id)
         serializer = VisitUpdateSerializer(visit, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -235,7 +244,7 @@ class OwnerVisitUpdateView(APIView):
 # ---------------------------------------------------------------------------
 
 @extend_schema(tags=["Back-office CRM"], summary="Écran 26 : Pipeline Kanban (?agent=me, 50 leads par colonne)",
-               responses={200: serializers.DictField()})
+               responses={200: KanbanSchema})
 class PipelineKanbanView(APIView):
     permission_classes = [IsStaffOrAgent]
 
@@ -294,7 +303,7 @@ class VisitRequestListAdminView(generics.ListAPIView):
 
     def get_queryset(self):
         params = self.request.query_params
-        qs = VisitRequest.objects.select_related('property', 'lead').prefetch_related('property__images')
+        qs = VisitRequest.objects.select_related(*PROPERTY_CARD_RELATED, 'lead').prefetch_related('property__images')
         if params.get('status'):
             qs = qs.filter(status=params['status'])
         if params.get('type'):
@@ -307,7 +316,7 @@ class VisitRequestListAdminView(generics.ListAPIView):
 @extend_schema(tags=["Back-office CRM"])
 class VisitRequestDetailAdminView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsStaffOrAgent]
-    queryset = VisitRequest.objects.select_related('property', 'lead')
+    queryset = VisitRequest.objects.select_related(*PROPERTY_CARD_RELATED, 'lead')
     lookup_field = 'id'
 
     def get_serializer_class(self):
@@ -320,7 +329,7 @@ class PropertyInquiryListAdminView(generics.ListAPIView):
     serializer_class = PropertyInquiryDetailSerializer
 
     def get_queryset(self):
-        qs = PropertyInquiry.objects.select_related('property', 'lead').prefetch_related('property__images').order_by('-created_at')
+        qs = PropertyInquiry.objects.select_related(*PROPERTY_CARD_RELATED, 'lead').prefetch_related('property__images').order_by('-created_at')
         processed = self.request.query_params.get('processed')
         if processed in ('0', '1'):
             qs = qs.filter(is_processed=processed == '1')
@@ -330,12 +339,13 @@ class PropertyInquiryListAdminView(generics.ListAPIView):
 @extend_schema(tags=["Back-office CRM"], summary="Marquer une demande comme traitée")
 class PropertyInquiryDetailAdminView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsStaffOrAgent]
-    queryset = PropertyInquiry.objects.select_related('property', 'lead')
+    queryset = PropertyInquiry.objects.select_related(*PROPERTY_CARD_RELATED, 'lead')
     serializer_class = PropertyInquiryDetailSerializer
     lookup_field = 'id'
 
 
-@extend_schema(tags=["Back-office CRM"], summary="Tableau de bord commercial : portefeuille, prospects, visites, entonnoir, activité")
+@extend_schema(tags=["Back-office CRM"], summary="Tableau de bord commercial : portefeuille, prospects, visites, entonnoir, activité",
+               responses={200: AdminDashboardSchema})
 class AdminDashboardView(APIView):
     permission_classes = [IsStaffOrAgent]
 
@@ -381,6 +391,38 @@ class AdminDashboardView(APIView):
             'funnel': funnel,
             'activity': [{'who': a.lead.full_name, 'what': a.details, 'type': a.interaction_type, 'when': a.created_at} for a in activity],
         })
+
+
+@extend_schema(tags=["Back-office CRM"], summary="Recherche globale de l'en-tête : biens, prospects et (administrateurs) utilisateurs",
+               parameters=[OpenApiParameter('q', str, description="2 caractères minimum")], responses={200: GlobalSearchSchema})
+class GlobalSearchView(APIView):
+    permission_classes = [IsStaffOrAgent]
+    LIMIT = 5
+
+    def get(self, request):
+        from apps.users.infrastructure.models import User
+        from apps.users.interfaces.permissions import is_admin
+        q = (request.query_params.get('q') or '').strip()
+        out = {'properties': [], 'leads': [], 'users': []}
+        if len(q) < 2:
+            return Response(out)
+
+        props = (Property.objects.exclude(status=PropertyStatus.ARCHIVE)
+                 .filter(Q(title__icontains=q) | Q(reference__icontains=q) | Q(neighborhood__icontains=q) | Q(commune__icontains=q))
+                 .order_by('-created_at')[:self.LIMIT])
+        out['properties'] = [{'id': p.id, 'reference': p.reference, 'title': p.title, 'slug': p.slug, 'commune': p.commune,
+                              'status_display': p.get_status_display()} for p in props]
+
+        leads = (Lead.objects.filter(Q(full_name__icontains=q) | Q(phone_number__icontains=q) | Q(email__icontains=q))
+                 .order_by('-last_interaction_at')[:self.LIMIT])
+        out['leads'] = [{'id': l.id, 'full_name': l.full_name, 'phone_number': l.phone_number, 'stage_display': l.get_stage_display()} for l in leads]
+
+        if is_admin(request.user):  # la liste des comptes reste réservée aux administrateurs
+            users = (User.objects.filter(Q(first_name__icontains=q) | Q(last_name__icontains=q) | Q(email__icontains=q) | Q(phone_number__icontains=q))
+                     .order_by('first_name', 'last_name')[:self.LIMIT])
+            out['users'] = [{'id': u.id, 'name': f"{u.first_name} {u.last_name}".strip() or u.email, 'email': u.email,
+                             'role_display': u.get_role_display()} for u in users]
+        return Response(out)
 
 
 @extend_schema(tags=["Alertes de recherche"], summary="Mes alertes de recherche")

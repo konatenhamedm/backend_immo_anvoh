@@ -16,6 +16,7 @@ from apps.properties.infrastructure.models import (
     Property, PropertyFavorite, PropertyImage, PropertyStatus, VerificationStatus, PUBLIC_STATUSES,
     DevelopmentProject, ProjectLot, PropertyType, TransactionType, TitleDeedType,
 )
+from .schemas import CatalogMetaSchema, ImageCoverSerializer, OwnerDashboardSchema, PropertySlugSchema
 from .serializers import (
     PropertyCardSerializer,
     PropertyDetailSerializer,
@@ -153,7 +154,7 @@ class PropertyBySlugView(APIView):
         return Response(PropertyDetailSerializer(prop, context=ctx(request)).data)
 
 
-@extend_schema(tags=["Catalogue & Écrans"], summary="Slugs des biens publiés (sitemap, pré-rendu)")
+@extend_schema(tags=["Catalogue & Écrans"], summary="Slugs des biens publiés (sitemap, pré-rendu)", responses={200: PropertySlugSchema})
 class PropertySlugListView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -162,7 +163,7 @@ class PropertySlugListView(APIView):
         return Response(list(rows))
 
 
-@extend_schema(tags=["Catalogue & Écrans"], summary="Référentiels : communes, types, transactions, titres")
+@extend_schema(tags=["Catalogue & Écrans"], summary="Référentiels : communes, types, transactions, titres", responses={200: CatalogMetaSchema})
 class CatalogMetaView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -271,7 +272,7 @@ class AdminPropertyFavoriteListView(generics.ListAPIView):
     serializer_class = PropertyFavoriteAdminSerializer
 
 
-@extend_schema(tags=["Back-office Favoris"])
+@extend_schema(tags=["Back-office Favoris"], responses={204: None})
 class AdminPropertyFavoriteDetailView(generics.DestroyAPIView):
     permission_classes = [IsStaffOrAgent]
     queryset = PropertyFavorite.objects.all()
@@ -352,6 +353,7 @@ class OwnerPropertyDetailView(APIView):
             prop.save(update_fields=['verification_status', 'updated_at'])
         return Response(PropertyDetailSerializer(self._get(request, id), context=ctx(request)).data)
 
+    @extend_schema(request=None, responses={204: None}, summary="Retirer un de mes biens (archivage)")
     def delete(self, request, id):
         prop = self._get(request, id)
         if prop.status in (PropertyStatus.RESERVE, PropertyStatus.VENDU):
@@ -361,7 +363,7 @@ class OwnerPropertyDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-@extend_schema(tags=["Espace Propriétaire"], summary="Vue d'ensemble : audience, demandes, visites, accréditations")
+@extend_schema(tags=["Espace Propriétaire"], summary="Vue d'ensemble : audience, demandes, visites, accréditations", responses={200: OwnerDashboardSchema})
 class OwnerDashboardView(APIView):
     permission_classes = [IsOwnerRole]
 
@@ -429,6 +431,7 @@ class PropertyImageDetailView(APIView):
             raise PermissionDenied("Ce bien ne vous appartient pas.")
         return img
 
+    @extend_schema(request=ImageCoverSerializer, responses={200: PropertyImageSerializer})
     def patch(self, request, id):
         img = self._get(request, id)
         if request.data.get('is_cover'):
@@ -437,6 +440,7 @@ class PropertyImageDetailView(APIView):
             img.save(update_fields=['is_cover'])
         return Response(PropertyImageSerializer(img, context={'request': request}).data)
 
+    @extend_schema(request=None, responses={204: None})
     def delete(self, request, id):
         self._get(request, id).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

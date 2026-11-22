@@ -83,6 +83,9 @@ class Subscription(models.Model):
         verbose_name = 'Souscription'
         verbose_name_plural = 'Souscriptions'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status']),
+        ]
 
     def __str__(self):
         return f"{self.reference} — {self.plan.name} ({self.amount:,.0f} FCFA)"
@@ -126,6 +129,9 @@ class ScheduleEntry(models.Model):
         verbose_name = "Ligne d'échéancier"
         verbose_name_plural = 'Échéancier'
         ordering = ['-due_date']
+        indexes = [
+            models.Index(fields=['status', 'due_date']),
+        ]
 
     @property
     def is_income(self) -> bool:

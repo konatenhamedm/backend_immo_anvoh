@@ -9,6 +9,7 @@ from drf_spectacular.utils import extend_schema
 
 from apps.users.infrastructure.models import User, IdentityStatus
 from .permissions import IsAdminRole
+from .throttling import ScopedThrottleMixin
 from .serializers import (
     RegisterUserSerializer,
     UserProfileSerializer,
@@ -26,8 +27,9 @@ def _tokens_for(user):
 
 
 @extend_schema(tags=["Authentification & Profil"])
-class RegisterView(generics.CreateAPIView):
+class RegisterView(ScopedThrottleMixin, generics.CreateAPIView):
     """Écran 03 : Inscription. Génère les jetons JWT à la création du compte."""
+    throttle_scope = 'auth'
     queryset = User.objects.all()
     serializer_class = RegisterUserSerializer
     permission_classes = [permissions.AllowAny]
@@ -40,8 +42,9 @@ class RegisterView(generics.CreateAPIView):
 
 
 @extend_schema(tags=["Authentification & Profil"], request=LoginInputSerializer, responses={200: AuthTokenResponseSerializer})
-class LoginView(generics.GenericAPIView):
+class LoginView(ScopedThrottleMixin, generics.GenericAPIView):
     """Connexion par e-mail et mot de passe : jetons JWT + profil."""
+    throttle_scope = 'auth'
     serializer_class = LoginInputSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -82,7 +85,8 @@ class IdentityDocumentView(APIView):
 
 @extend_schema(tags=["Authentification & Profil"], request=PasswordChangeSerializer, responses={200: AuthTokenResponseSerializer},
                summary="Changer son mot de passe (renvoie de nouveaux jetons)")
-class PasswordChangeView(APIView):
+class PasswordChangeView(ScopedThrottleMixin, APIView):
+    throttle_scope = 'auth'
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):

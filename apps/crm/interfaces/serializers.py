@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from decimal import Decimal
 from django.utils import timezone
@@ -159,6 +160,7 @@ class LeadKanbanItemSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'score', 'temperature', 'last_interaction_at', 'created_at', 'source']
 
+    @extend_schema_field({'type': 'object', 'nullable': True, 'properties': {'id': {'type': 'integer'}, 'name': {'type': 'string'}, 'initials': {'type': 'string'}}})
     def get_agent(self, obj):
         a = obj.assigned_agent
         if not a:

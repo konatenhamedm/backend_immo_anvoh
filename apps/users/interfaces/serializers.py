@@ -34,6 +34,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     identity_status_display = serializers.CharField(source='get_identity_status_display', read_only=True)
     is_admin = serializers.SerializerMethodField()
+    # Booléens par clé (new_matches, price_drops, visit_reminders, newsletter) ; les clés sont validées plus bas.
+    notification_preferences = serializers.DictField(child=serializers.BooleanField(), required=False)
 
     class Meta:
         model = User

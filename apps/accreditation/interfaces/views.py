@@ -89,7 +89,7 @@ class OwnerDocumentUploadView(APIView):
         return Response(PropertyDocumentSerializer(doc, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
-@extend_schema(tags=["Accréditation"])
+@extend_schema(tags=["Accréditation"], responses={204: None})
 class OwnerDocumentDeleteView(generics.DestroyAPIView):
     permission_classes = [IsOwnerRole]
     lookup_field = 'id'

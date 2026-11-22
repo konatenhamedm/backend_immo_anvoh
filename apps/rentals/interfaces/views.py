@@ -10,6 +10,7 @@ from apps.users.interfaces.permissions import IsAdminRole, IsOwnerRole
 from apps.investments.domain.services import add_months
 from apps.rentals.infrastructure.models import Lease, OwnerPayout, PayoutStatus, RentPayment, RentStatus
 from .serializers import LeaseSerializer, OwnerPayoutSerializer, RentPaymentSerializer
+from .schemas import RentalSummarySchema
 
 MONTHS_FR = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.']
 
@@ -19,7 +20,7 @@ def _net(payment: RentPayment) -> Decimal:
     return payment.amount * (Decimal('100') - payment.lease.management_fee_rate) / Decimal('100')
 
 
-@extend_schema(tags=["Gestion locative"], summary="Revenus & performance du propriétaire connecté")
+@extend_schema(tags=["Gestion locative"], summary="Revenus & performance du propriétaire connecté", responses={200: RentalSummarySchema})
 class OwnerRentalSummaryView(APIView):
     permission_classes = [IsOwnerRole]
 
@@ -87,19 +88,40 @@ class LeaseAdminDetailView(generics.RetrieveUpdateDestroyAPIView):
 class RentPaymentAdminListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminRole]
     serializer_class = RentPaymentSerializer
-    queryset = RentPayment.objects.select_related('lease')
+
+    def get_queryset(self):
+        qs = RentPayment.objects.select_related('lease__property')
+        params = self.request.query_params
+        if params.get('lease'):
+            qs = qs.filter(lease_id=params['lease'])
+        if params.get('status'):
+            qs = qs.filter(status=params['status'])
+        return qs
+
+
+@extend_schema(tags=["Back-office Gestion locative"], summary="Corriger un loyer (statut, montant, date d'encaissement)")
+class RentPaymentAdminDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminRole]
+    serializer_class = RentPaymentSerializer
+    queryset = RentPayment.objects.select_related('lease__property')
+    lookup_field = 'id'
 
 
 @extend_schema(tags=["Back-office Gestion locative"], summary="Versements aux propriétaires")
 class PayoutAdminListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminRole]
     serializer_class = OwnerPayoutSerializer
-    queryset = OwnerPayout.objects.all()
+
+    def get_queryset(self):
+        qs = OwnerPayout.objects.select_related('owner')
+        if self.request.query_params.get('owner'):
+            qs = qs.filter(owner_id=self.request.query_params['owner'])
+        return qs
 
 
 @extend_schema(tags=["Back-office Gestion locative"])
 class PayoutAdminDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAdminRole]
     serializer_class = OwnerPayoutSerializer
-    queryset = OwnerPayout.objects.all()
+    queryset = OwnerPayout.objects.select_related('owner')
     lookup_field = 'id'

@@ -11,6 +11,7 @@ from apps.users.infrastructure.models import User, UserRole
 from apps.users.interfaces.permissions import is_notary, is_staff_or_agent
 from apps.messaging.infrastructure.models import Conversation, ConversationParticipant, Message
 from .serializers import ConversationSerializer, MessageSerializer, NewMessageSerializer, StartConversationSerializer
+from .schemas import UnreadCountSchema
 
 
 def _my_conversations(user):
@@ -114,7 +115,7 @@ class ConversationMessagesView(APIView):
         return Response(MessageSerializer(message, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
-@extend_schema(tags=["Messagerie"], summary="Nombre total de messages non lus (badge du menu)")
+@extend_schema(tags=["Messagerie"], summary="Nombre total de messages non lus (badge du menu)", responses={200: UnreadCountSchema})
 class UnreadCountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 

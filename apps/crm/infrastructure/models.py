@@ -103,6 +103,11 @@ class Lead(models.Model):
         verbose_name = 'Prospect CRM'
         verbose_name_plural = 'Prospects CRM'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['stage', '-score']),
+            models.Index(fields=['phone_number']),
+            models.Index(fields=['-last_interaction_at']),
+        ]
 
     def __str__(self):
         return f"{self.full_name} [{self.get_stage_display()}] - Score: {self.score}"
@@ -141,6 +146,9 @@ class PropertyInquiry(models.Model):
         verbose_name = 'Demande d\'information'
         verbose_name_plural = 'Demandes d\'informations'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['is_processed', '-created_at']),
+        ]
 
 
 class VisitRequestType(models.TextChoices):
@@ -178,6 +186,9 @@ class VisitRequest(models.Model):
         verbose_name = 'Demande de visite / RDV'
         verbose_name_plural = 'Demandes de visites / RDV'
         ordering = ['scheduled_date', 'scheduled_time']
+        indexes = [
+            models.Index(fields=['scheduled_date', 'status']),
+        ]
 
     def __str__(self):
         return f"Visite de {self.property.title} le {self.scheduled_date} à {self.scheduled_time} ({self.get_status_display()})"

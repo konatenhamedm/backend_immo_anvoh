@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import (
+    GlobalSearchView,
     PropertyInquiryView,
     WhatsAppClickTrackView,
     FindMyPropertyView,
@@ -37,6 +38,7 @@ urlpatterns = [
     path('owner/visits/<uuid:id>/', OwnerVisitUpdateView.as_view(), name='owner-visit-update'),
 
     # Back-office
+    path('admin/search/', GlobalSearchView.as_view(), name='admin-search'),
     path('admin/dashboard/', AdminDashboardView.as_view(), name='admin-dashboard'),
     path('pipeline/kanban/', PipelineKanbanView.as_view(), name='pipeline-kanban'),
     path('leads/', LeadCreateAdminView.as_view(), name='admin-lead-create'),

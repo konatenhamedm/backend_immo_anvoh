@@ -236,6 +236,12 @@ class Property(models.Model):
         verbose_name = 'Bien immobilier'
         verbose_name_plural = 'Biens immobiliers'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['commune']),
+            models.Index(fields=['property_type']),
+            models.Index(fields=['verification_status']),
+        ]
 
     def __str__(self):
         return f"[{self.reference}] {self.title} - {self.commune} ({self.price:,.0f} FCFA)"
