@@ -1,7 +1,7 @@
 """Recette automatisée (API) : les points de RECETTE.md vérifiables sans écran.
 
 Usage : API lancée sur 127.0.0.1:8000 avec les données de démo (`python manage.py seed_data`, mot de passe Demo12345!),
-puis `python3 scripts/recette_api.py`. Code de sortie 1 si une vérification échoue. Nettoie ce qu'elle crée (prospects de test).
+puis `python3 scripts/recette_api.py` (autre adresse : `RECETTE_API=http://127.0.0.1:8001/api/v1`). Code de sortie 1 si une vérification échoue. Nettoie ce qu'elle crée (prospects de test).
 Laisse une conversation « ZZ Recette » vers l'équipe (l'API ne sait pas la supprimer) : la retirer avec
 `Conversation.objects.filter(subject__startswith='ZZ').delete()` dans `manage.py shell`.
 Suppose les comptes de démo dans leur état d'origine (baux de démo chez k.yao@mail.ci).
@@ -9,11 +9,12 @@ Suppose les comptes de démo dans leur état d'origine (baux de démo chez k.yao
 
 import datetime
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
 
-B = "http://127.0.0.1:8000/api/v1"
+B = os.environ.get("RECETTE_API", "http://127.0.0.1:8000/api/v1")
 PW = "Demo12345!"
 results = []
 

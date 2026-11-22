@@ -22,6 +22,36 @@ python manage.py runserver      # http://127.0.0.1:8000
 - Comptes de démo : mot de passe `SEED_PASSWORD` (sinon généré et affiché une fois). Le front propose des boutons « Comptes de démo » en développement.
 - `seed_data` **refuse de s'exécuter si `DEBUG=False`** (sauf `--force`) pour ne pas polluer une base de production.
 
+### Données de démonstration pour un testeur ou un autre développeur
+
+Un développeur qui démarre le projet chez lui n'a besoin que de ceci (PostgreSQL installé) :
+
+```bash
+git clone … && git checkout feat/backoffice-integration
+python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+cp .env.example .env                  # adapter DB_USER / DB_PASSWORD
+createdb thiebbro_immo_db
+python manage.py load_demo_data       # migrations + base de démonstration + pièces PDF
+python manage.py runserver
+```
+
+Comptes de démo (mot de passe `Demo12345!`) : `admin@thiebbro.ci`, `aminata.agent@thiebbro.ci` (conseiller), `a.kone@notaire.ci` (notaire),
+`k.yao@mail.ci` (propriétaire, avec baux), `awa.traore@mail.ci` (acheteuse), `soro.paris@gmail.com` (investisseur).
+
+| Commande | Rôle |
+| :--- | :--- |
+| `python manage.py migrate` | met à jour la **structure** de la base (tables, colonnes, index) : à relancer après chaque `git pull` |
+| `python manage.py load_demo_data` | migre, puis charge `fixtures/demo_data.json` et copie `fixtures/demo_media/` : met à jour les **données** |
+| `python manage.py load_demo_data --no-migrate` | idem sans les migrations |
+| `python manage.py export_demo_data` | régénère `fixtures/` depuis la base actuelle (voir avertissement ci-dessous) |
+| `python manage.py seed_data` | alternative : FABRIQUE des données neuves, dates relatives à aujourd'hui |
+
+- **Mise à jour sans danger** : chaque objet du fichier est créé ou *remplacé* s'il existe déjà (même identifiant) ; ce qui n'est pas dans le fichier est conservé. On peut relancer la commande à volonté.
+- **`load_demo_data` ou `seed_data` ?** `load_demo_data` restitue à l'identique la base exportée (mêmes identifiants, mêmes dates : tout le monde voit les mêmes données). `seed_data` repart de zéro avec des dates récentes. Les deux refusent de s'exécuter si `DEBUG=False`.
+- **Pourquoi des fixtures et pas une migration de données ?** Une migration s'exécute sur *toutes* les bases, production comprise : y mettre des comptes de démonstration serait dangereux. Les fixtures se chargent à la demande, seulement là où on le décide.
+- ⚠ **`fixtures/` ne doit contenir que des données de démonstration** (comptes avec mots de passe hachés, e-mails, téléphones). Ne jamais exporter ni versionner une base contenant de vraies données de clients.
+- Le chargement est vérifié par des tests (`apps/properties/tests_demo_data.py`) : aller-retour complet, idempotence, refus en production.
+
 ### Variables d'environnement (`.env.example`)
 
 | Variable | Rôle | Défaut |
