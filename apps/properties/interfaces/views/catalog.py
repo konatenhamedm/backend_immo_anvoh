@@ -9,7 +9,6 @@ from rest_framework.views import APIView
 
 from apps.properties.infrastructure.models import (
     PUBLIC_STATUSES,
-    DevelopmentProject,
     Property,
     PropertyStatus,
     PropertyType,
@@ -20,14 +19,22 @@ from apps.users.interfaces.permissions import IsStaffOrAgent, ReadOnlyOr
 
 from ..schemas import CatalogMetaSchema, PropertySlugSchema
 from ..serializers import (
-    DevelopmentProjectSerializer,
+    DevelopmentProjectSummarySerializer,
     HomeScreenResponseSerializer,
     InvestmentScreenResponseSerializer,
     PropertyAdminWriteSerializer,
     PropertyCardSerializer,
     PropertyDetailSerializer,
 )
-from ._common import _visible_or_404, apply_search_filters, can_manage, cards_qs, ctx, public_qs
+from ._common import (
+    _visible_or_404,
+    apply_search_filters,
+    can_manage,
+    cards_qs,
+    ctx,
+    project_summaries,
+    public_qs,
+)
 
 DEFAULT_COMMUNES = ["Cocody", "Marcory", "Plateau", "Yopougon", "Bingerville", "Grand-Bassam", "Assinie", "Songon"]
 
@@ -42,7 +49,7 @@ class HomeScreenView(APIView):
 
     def get(self, request):
         active = public_qs().filter(status=PropertyStatus.DISPONIBLE)
-        projects = DevelopmentProject.objects.prefetch_related("lots")[:4]
+        projects = project_summaries()[:4]
         c = ctx(request)
         return Response(
             {
@@ -52,7 +59,7 @@ class HomeScreenView(APIView):
                 "recent_properties": PropertyCardSerializer(
                     active.order_by("-created_at")[:8], many=True, context=c
                 ).data,
-                "development_projects": DevelopmentProjectSerializer(projects, many=True, context=c).data,
+                "development_projects": DevelopmentProjectSummarySerializer(projects, many=True, context=c).data,
                 "selected_investments": PropertyCardSerializer(
                     active.filter(is_selected_investment=True)[:6], many=True, context=c
                 ).data,
@@ -184,8 +191,8 @@ class InvestmentScreenView(APIView):
                 "furnished_residences": PropertyCardSerializer(
                     active.filter(property_type=PropertyType.RESIDENCE_MEUBLEE)[:6], many=True, context=c
                 ).data,
-                "development_projects": DevelopmentProjectSerializer(
-                    DevelopmentProject.objects.prefetch_related("lots")[:6], many=True, context=c
+                "development_projects": DevelopmentProjectSummarySerializer(
+                    project_summaries()[:6], many=True, context=c
                 ).data,
                 "land_opportunities": PropertyCardSerializer(
                     active.filter(property_type=PropertyType.TERRAIN)[:6], many=True, context=c

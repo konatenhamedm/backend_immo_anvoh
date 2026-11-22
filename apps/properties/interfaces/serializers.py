@@ -85,7 +85,20 @@ class ProjectLotSerializer(serializers.ModelSerializer):
         ]
 
 
-class DevelopmentProjectSerializer(serializers.ModelSerializer):
+class ProjectCoverMixin:
+    """Image de couverture d'un programme : fichier téléversé, sinon URL externe, sinon rien."""
+
+    @extend_schema_field({"type": "string", "format": "uri", "nullable": True})
+    def get_cover(self, obj):
+        if obj.cover_image:
+            request = self.context.get("request")
+            return request.build_absolute_uri(obj.cover_image.url) if request else obj.cover_image.url
+        return obj.cover_image_url or None
+
+
+class DevelopmentProjectSerializer(ProjectCoverMixin, serializers.ModelSerializer):
+    """Programme complet, avec la liste de ses lots (administration des programmes, fiche d'un programme)."""
+
     lots = ProjectLotSerializer(many=True, read_only=True)
     cover = serializers.SerializerMethodField()
     lots_sold = serializers.SerializerMethodField()
@@ -116,15 +129,43 @@ class DevelopmentProjectSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["slug"]
 
-    @extend_schema_field({"type": "string", "format": "uri", "nullable": True})
-    def get_cover(self, obj):
-        if obj.cover_image:
-            request = self.context.get("request")
-            return request.build_absolute_uri(obj.cover_image.url) if request else obj.cover_image.url
-        return obj.cover_image_url or None
-
     def get_lots_sold(self, obj) -> int:
         return sum(1 for lot in obj.lots.all() if lot.status == PropertyStatus.VENDU)
+
+
+class DevelopmentProjectSummarySerializer(ProjectCoverMixin, serializers.ModelSerializer):
+    """
+    Programme SANS la liste de ses lots, pour les écrans qui ne les affichent pas (accueil, « Investir »).
+
+    Les décomptes `lots_sold` / `lots_available` viennent de la base (annotations de `project_summaries()` dans
+    views/_common.py) : une seule requête au lieu de charger chaque lot. Un programme de 120 lots pèse ~300 octets
+    ici contre ~30 Ko avec DevelopmentProjectSerializer.
+    """
+
+    cover = serializers.SerializerMethodField()
+    lots_sold = serializers.IntegerField(read_only=True)
+    lots_available = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = DevelopmentProject
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "developer_name",
+            "city",
+            "commune",
+            "neighborhood",
+            "total_lots_count",
+            "lots_sold",
+            "lots_available",
+            "delivery_date",
+            "starting_price",
+            "cover",
+            "construction_progress",
+            "is_featured",
+        ]
+        read_only_fields = fields
 
 
 class PropertyCardSerializer(serializers.ModelSerializer):
@@ -417,7 +458,7 @@ class HomeScreenResponseSerializer(serializers.Serializer):
 
     featured_opportunities = PropertyCardSerializer(many=True)
     recent_properties = PropertyCardSerializer(many=True)
-    development_projects = DevelopmentProjectSerializer(many=True)
+    development_projects = DevelopmentProjectSummarySerializer(many=True)
     selected_investments = PropertyCardSerializer(many=True)
 
 
@@ -426,7 +467,7 @@ class InvestmentScreenResponseSerializer(serializers.Serializer):
 
     top_yield_properties = PropertyCardSerializer(many=True)
     furnished_residences = PropertyCardSerializer(many=True)
-    development_projects = DevelopmentProjectSerializer(many=True)
+    development_projects = DevelopmentProjectSummarySerializer(many=True)
     land_opportunities = PropertyCardSerializer(many=True)
 
 

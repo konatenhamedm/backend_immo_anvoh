@@ -5,7 +5,9 @@ from rest_framework.exceptions import NotFound
 
 from apps.properties.infrastructure.models import (
     PUBLIC_STATUSES,
+    DevelopmentProject,
     Property,
+    PropertyStatus,
     VerificationStatus,
 )
 from apps.users.interfaces.permissions import is_staff_or_agent
@@ -23,6 +25,18 @@ def cards_qs():
 
 def public_qs():
     return cards_qs().filter(status__in=PUBLIC_STATUSES)
+
+
+def project_summaries():
+    """
+    Programmes neufs avec leurs décomptes de lots, calculés par la base (un seul GROUP BY, aucun lot chargé).
+
+    À utiliser avec DevelopmentProjectSummarySerializer. Pour la liste détaillée des lots, voir DevelopmentProjectSerializer.
+    """
+    return DevelopmentProject.objects.annotate(
+        lots_sold=Count("lots", filter=Q(lots__status=PropertyStatus.VENDU)),
+        lots_available=Count("lots", filter=Q(lots__status=PropertyStatus.DISPONIBLE)),
+    )
 
 
 def ctx(request):
