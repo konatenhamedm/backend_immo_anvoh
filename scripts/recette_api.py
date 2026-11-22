@@ -4,7 +4,7 @@ Usage : API lancée sur 127.0.0.1:8000 avec les données de démo (`python manag
 puis `python3 scripts/recette_api.py`. Code de sortie 1 si une vérification échoue. Nettoie ce qu'elle crée (prospects de test).
 Laisse une conversation « ZZ Recette » vers l'équipe (l'API ne sait pas la supprimer) : la retirer avec
 `Conversation.objects.filter(subject__startswith='ZZ').delete()` dans `manage.py shell`.
-Suppose les comptes de démo dans leur état d'origine (conseillers sans is_staff, baux de démo chez k.yao@mail.ci).
+Suppose les comptes de démo dans leur état d'origine (baux de démo chez k.yao@mail.ci).
 """
 
 import datetime

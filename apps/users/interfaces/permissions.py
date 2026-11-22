@@ -1,7 +1,7 @@
 """
 Permissions par rôle, partagées par toutes les apps.
 
-- IsAdminRole       : administrateurs (rôle ADMIN ou compte staff Django)
+- IsAdminRole       : administrateurs (rôle ADMIN, ou superutilisateur Django)
 - IsStaffOrAgent    : équipe commerciale (admin + conseillers AGENT)
 - IsOwnerRole       : propriétaires et promoteurs (et l'admin, qui saisit sous mandat)
 - IsNotaryOrAdmin   : notaires partenaires et administrateurs (file d'accréditation)
@@ -14,7 +14,13 @@ from apps.users.infrastructure.models import UserRole
 
 
 def is_admin(user) -> bool:
-    return bool(user and user.is_authenticated and (user.is_staff or user.role == UserRole.ADMIN))
+    """
+    Administrateur de l'API : rôle ADMIN, ou superutilisateur Django.
+
+    Le drapeau Django `is_staff` (accès au site /admin/ de Django) ne donne PAS ce droit : un conseiller marqué
+    `is_staff` pour consulter /admin/ reste un conseiller pour l'API. Ne pas ajouter `is_staff` ici.
+    """
+    return bool(user and user.is_authenticated and (user.role == UserRole.ADMIN or user.is_superuser))
 
 
 def is_staff_or_agent(user) -> bool:

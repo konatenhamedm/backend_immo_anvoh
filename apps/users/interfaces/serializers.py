@@ -2,6 +2,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 from apps.users.infrastructure.models import SELF_SERVICE_ROLES, User, UserRole
+from apps.users.interfaces.permissions import is_admin
 
 
 class RegisterUserSerializer(serializers.ModelSerializer):
@@ -76,7 +77,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "email", "role", "identity_status", "created_at"]
 
     def get_is_admin(self, obj) -> bool:
-        return bool(obj.is_staff or obj.role == UserRole.ADMIN)
+        return is_admin(obj)
 
     def validate_notification_preferences(self, value):
         allowed = {"new_matches", "price_drops", "visit_reminders", "newsletter"}

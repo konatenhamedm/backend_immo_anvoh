@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from apps.messaging.infrastructure.models import Conversation, ConversationParticipant, Message
 from apps.properties.infrastructure.models import Property
 from apps.users.infrastructure.models import User, UserRole
-from apps.users.interfaces.permissions import is_notary, is_staff_or_agent
+from apps.users.interfaces.permissions import is_admin, is_notary, is_staff_or_agent
 
 from .schemas import UnreadCountSchema
 from .serializers import ConversationSerializer, MessageSerializer, NewMessageSerializer, StartConversationSerializer
@@ -31,7 +31,7 @@ def _team_contact():
     return (
         User.objects.filter(is_active=True, role=UserRole.AGENT).order_by("id").first()
         or User.objects.filter(is_active=True, role=UserRole.ADMIN).order_by("id").first()
-        or User.objects.filter(is_active=True, is_staff=True).order_by("id").first()
+        or User.objects.filter(is_active=True, is_superuser=True).order_by("id").first()
     )
 
 
@@ -48,7 +48,7 @@ def _resolve_recipient(sender, prop, recipient_id):
             is_staff_or_agent(sender)
             or is_notary(sender)
             or recipient.role in (UserRole.AGENT, UserRole.ADMIN, UserRole.NOTAIRE)
-            or recipient.is_staff
+            or is_admin(recipient)
             or (prop is not None and recipient.id in (prop.owner_id, prop.assigned_agent_id))
         )
         if not allowed:

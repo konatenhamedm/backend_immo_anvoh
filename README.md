@@ -72,13 +72,13 @@ Chaque module expose, selon le public visé : des routes ouvertes (`/<module>/�
 
   | Permission | Qui passe |
   | :--- | :--- |
-  | `IsAdminRole` | Administrateurs (rôle `ADMIN` ou compte `is_staff`) |
+  | `IsAdminRole` | Administrateurs (rôle `ADMIN`, ou superutilisateur Django) |
   | `IsStaffOrAgent` | Administrateurs et conseillers |
   | `IsOwnerRole` | Propriétaires et promoteurs (et l'administrateur, sous mandat) |
   | `IsNotaryOrAdmin` | Notaires partenaires et équipe |
   | `ReadOnlyOr(perm)` | Lecture pour tous, écriture avec la permission donnée |
 
-  ⚠ Un compte **`is_staff=True` est administrateur de l'API**, quel que soit son rôle : ne pas poser ce drapeau sur un conseiller.
+  Le drapeau Django `is_staff` (accès au site `/admin/` de Django) **ne donne aucun droit d'administrateur sur l'API** : seul le rôle `ADMIN` (ou `is_superuser`) le fait. Un conseiller `is_staff` reste un conseiller (`is_admin()` dans `permissions.py`, verrouillé par `apps/users/tests_permissions.py`).
 - **Inscription** : seuls les rôles grand public sont acceptés ; le rôle d'un profil est en lecture seule.
 - **Quotas** (`DEFAULT_THROTTLE_RATES`) : 120/min anonyme, 600/min connecté ; `auth` 20/min (connexion, inscription, changement de mot de passe) ; `public_forms` 10/min partagé entre les 4 formulaires publics. Déclarer `throttle_scope = '…'` avec `ScopedThrottleMixin` (`apps/users/interfaces/throttling.py`) pour une nouvelle route sensible.
 - **Pagination** : `?page_size=` jusqu'à 100 (défaut 12).
