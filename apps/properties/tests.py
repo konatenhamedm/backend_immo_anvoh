@@ -363,3 +363,44 @@ class GeoSearchTests(TestCase):
         self.assertNotIn(("commune", "Dabou"), {k for k in by_name} - {("commune", "Dabou")})  # (Dabou existe : 1 bien)
         self.assertEqual(by_name[("commune", "Dabou")]["count"], 1)
         self.assertEqual(sum(1 for p in r.data if p["name"] == "Brouillon"), 0)
+
+
+class AdminListBySlugTests(TestCase):
+    """La page de modification retrouve un bien par son slug, quel que soit son statut (y compris archivé)."""
+
+    def test_exact_slug_filter_finds_archived_property_for_the_team(self):
+        from apps.properties.infrastructure.models import Property
+
+        admin = User.objects.create_user(
+            email="a@test.ci",
+            password="Un-Mot2Passe-Solide",
+            first_name="A",
+            last_name="D",
+            phone_number="+2250700000001",
+            role=UserRole.ADMIN,
+        )
+        archived = Property.objects.create(
+            title="Villa Zéphyr avec jardin",
+            description="d",
+            property_type="VILLA",
+            price=Decimal("1"),
+            commune="Cocody",
+            neighborhood="Angré",
+            surface_sqm=Decimal("100"),
+            status=PropertyStatus.ARCHIVE,
+        )
+        Property.objects.create(
+            title="Autre villa",
+            description="d",
+            property_type="VILLA",
+            price=Decimal("1"),
+            commune="Cocody",
+            neighborhood="Angré",
+            surface_sqm=Decimal("100"),
+            status=PropertyStatus.DISPONIBLE,
+        )
+        c = APIClient()
+        c.force_authenticate(admin)
+        rows = c.get("/api/v1/properties/admin/properties/", {"slug": archived.slug}).data["results"]
+        self.assertEqual([r["id"] for r in rows], [str(archived.id)])
+        self.assertEqual(c.get("/api/v1/properties/admin/properties/", {"slug": "inconnu"}).data["results"], [])

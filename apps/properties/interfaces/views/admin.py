@@ -32,6 +32,8 @@ class AdminPropertyListCreateView(generics.ListCreateAPIView):
         qs = cards_qs().annotate(leads_count=Count("leads", distinct=True))
         if params.get("status"):
             qs = qs.filter(status=params["status"])
+        if params.get("slug"):  # recherche exacte par adresse de la fiche (page de modification d'un bien)
+            qs = qs.filter(slug=params["slug"])
         if params.get("verification"):
             qs = qs.filter(verification_status=params["verification"])
         tour = params.get("tour")
