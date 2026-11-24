@@ -20,11 +20,22 @@ PASSWORD = "Un-Mot2Passe-Solide"
 
 
 def make_user(email, role=UserRole.PARTICULIER):
-    return User.objects.create_user(email=email, password=PASSWORD, first_name="T", last_name="N", phone_number="+2250700000000", role=role)
+    return User.objects.create_user(
+        email=email, password=PASSWORD, first_name="T", last_name="N", phone_number="+2250700000000", role=role
+    )
 
 
 def make_property(**extra):
-    data = dict(title="Villa", description="d", property_type="VILLA", price=Decimal("50000000"), commune="Cocody", neighborhood="Angré", surface_sqm=Decimal("90"), status=PropertyStatus.DISPONIBLE)
+    data = dict(
+        title="Villa",
+        description="d",
+        property_type="VILLA",
+        price=Decimal("50000000"),
+        commune="Cocody",
+        neighborhood="Angré",
+        surface_sqm=Decimal("90"),
+        status=PropertyStatus.DISPONIBLE,
+    )
     data.update(extra)
     return Property.objects.create(**data)
 
@@ -43,10 +54,22 @@ class AttributionTests(TestCase):
         return APIClient().post("/api/v1/crm/inquiries/", body, format="json")
 
     def test_channel_and_utm_are_saved_on_the_new_lead(self):
-        r = self._inquiry("0707070707", {"channel": "FACEBOOK", "utm_source": "facebook", "utm_medium": "paid", "utm_campaign": "lancement-nov", "landing_path": "/diaspora"})
+        r = self._inquiry(
+            "0707070707",
+            {
+                "channel": "FACEBOOK",
+                "utm_source": "facebook",
+                "utm_medium": "paid",
+                "utm_campaign": "lancement-nov",
+                "landing_path": "/diaspora",
+            },
+        )
         self.assertEqual(r.status_code, 201)
         lead = Lead.objects.get(id=r.data["lead_id"])
-        self.assertEqual((lead.acquisition_channel, lead.utm_source, lead.utm_medium, lead.utm_campaign, lead.landing_path), ("FACEBOOK", "facebook", "paid", "lancement-nov", "/diaspora"))
+        self.assertEqual(
+            (lead.acquisition_channel, lead.utm_source, lead.utm_medium, lead.utm_campaign, lead.landing_path),
+            ("FACEBOOK", "facebook", "paid", "lancement-nov", "/diaspora"),
+        )
 
     def test_without_attribution_the_lead_comes_from_the_website(self):
         lead = Lead.objects.get(id=self._inquiry("0707070708").data["lead_id"])
@@ -65,7 +88,11 @@ class AttributionTests(TestCase):
         admin = make_user("admin@test.ci", UserRole.ADMIN)
         c = APIClient()
         c.force_authenticate(admin)
-        r = c.post("/api/v1/crm/leads/", {"full_name": "Salon", "phone_number": "0711111111", "acquisition_channel": "PARRAINAGE"}, format="json")
+        r = c.post(
+            "/api/v1/crm/leads/",
+            {"full_name": "Salon", "phone_number": "0711111111", "acquisition_channel": "PARRAINAGE"},
+            format="json",
+        )
         self.assertEqual(r.status_code, 201)
         self.assertEqual(Lead.objects.get(phone_number="+2250711111111").acquisition_channel, "PARRAINAGE")
 
@@ -78,12 +105,45 @@ class ServerEventTests(TestCase):
     def test_conversion_events_are_recorded_with_their_channel(self):
         c = APIClient()
         att = {"channel": "INSTAGRAM"}
-        c.post("/api/v1/crm/inquiries/", {"property_id": str(self.prop.id), "full_name": "A", "phone_number": "0712121212", "objective": "Habiter", "attribution": att}, format="json")
-        c.post("/api/v1/crm/whatsapp-click/", {"property_id": str(self.prop.id), "attribution": att}, format="json")  # anonyme : pas de prospect
-        c.post("/api/v1/crm/visits/schedule/", {"property_id": str(self.prop.id), "full_name": "A", "phone_number": "0712121212", "scheduled_date": str(date.today() + timedelta(days=2)), "scheduled_time": "10:00", "attribution": att}, format="json")
+        c.post(
+            "/api/v1/crm/inquiries/",
+            {
+                "property_id": str(self.prop.id),
+                "full_name": "A",
+                "phone_number": "0712121212",
+                "objective": "Habiter",
+                "attribution": att,
+            },
+            format="json",
+        )
+        c.post(
+            "/api/v1/crm/whatsapp-click/", {"property_id": str(self.prop.id), "attribution": att}, format="json"
+        )  # anonyme : pas de prospect
+        c.post(
+            "/api/v1/crm/visits/schedule/",
+            {
+                "property_id": str(self.prop.id),
+                "full_name": "A",
+                "phone_number": "0712121212",
+                "scheduled_date": str(date.today() + timedelta(days=2)),
+                "scheduled_time": "10:00",
+                "attribution": att,
+            },
+            format="json",
+        )
         names = {e.name: e.channel for e in AnalyticsEvent.objects.all()}
-        self.assertEqual(names, {ev.LEAD_CREATED: "INSTAGRAM", ev.INQUIRY: "INSTAGRAM", ev.WHATSAPP_CLICK: "INSTAGRAM", ev.VISIT_REQUESTED: "INSTAGRAM"})
-        self.assertEqual(AnalyticsEvent.objects.filter(name=ev.LEAD_CREATED).count(), 1)  # une seule création, pas une par appel
+        self.assertEqual(
+            names,
+            {
+                ev.LEAD_CREATED: "INSTAGRAM",
+                ev.INQUIRY: "INSTAGRAM",
+                ev.WHATSAPP_CLICK: "INSTAGRAM",
+                ev.VISIT_REQUESTED: "INSTAGRAM",
+            },
+        )
+        self.assertEqual(
+            AnalyticsEvent.objects.filter(name=ev.LEAD_CREATED).count(), 1
+        )  # une seule création, pas une par appel
 
     def test_favorite_added_is_recorded_but_not_removal(self):
         user = make_user("c@test.ci")
@@ -116,10 +176,17 @@ class IngestTests(TestCase):
         cache.clear()
 
     def _post(self, events, anon=None, client=None):
-        return (client or APIClient()).post(self.URL, {"anonymous_id": anon or self.ANON, "events": events}, format="json")
+        return (client or APIClient()).post(
+            self.URL, {"anonymous_id": anon or self.ANON, "events": events}, format="json"
+        )
 
     def test_accepts_client_events_without_login(self):
-        r = self._post([{"name": "SESSION_START", "path": "/"}, {"name": "SEARCH", "path": "/biens", "properties": {"q": "Cocody", "results": 12}}])
+        r = self._post(
+            [
+                {"name": "SESSION_START", "path": "/"},
+                {"name": "SEARCH", "path": "/biens", "properties": {"q": "Cocody", "results": 12}},
+            ]
+        )
         self.assertEqual(r.status_code, 204)
         self.assertEqual(AnalyticsEvent.objects.count(), 2)
         e = AnalyticsEvent.objects.get(name="SEARCH")
@@ -131,7 +198,21 @@ class IngestTests(TestCase):
         self.assertEqual(AnalyticsEvent.objects.count(), 0)  # impossible de gonfler les ventes depuis le navigateur
 
     def test_personal_data_is_dropped(self):
-        self._post([{"name": "SEARCH", "properties": {"q": "villa", "email": "x@y.ci", "phone": "0707", "full_name": "Awa", "message": "salut", "nested": {"a": 1}}}])
+        self._post(
+            [
+                {
+                    "name": "SEARCH",
+                    "properties": {
+                        "q": "villa",
+                        "email": "x@y.ci",
+                        "phone": "0707",
+                        "full_name": "Awa",
+                        "message": "salut",
+                        "nested": {"a": 1},
+                    },
+                }
+            ]
+        )
         self.assertEqual(AnalyticsEvent.objects.get().properties, {"q": "villa"})
         self.assertEqual(clean_properties({"password": "x", "ok": True}), {"ok": True})
         self.assertEqual(len(clean_properties({f"k{i}": i for i in range(50)})), 12)
@@ -177,7 +258,12 @@ class SummaryTests(TestCase):
         self._event("SIGNUP")
         # 4 prospects Facebook (1 vendu), 1 Google (non vendu), 1 saisi par l'équipe (vendu, hors app)
         for i in range(4):
-            Lead.objects.create(full_name=f"FB{i}", phone_number=f"+2250720000{i:03d}", acquisition_channel="FACEBOOK", temperature="CHAUD" if i < 2 else "FROID")
+            Lead.objects.create(
+                full_name=f"FB{i}",
+                phone_number=f"+2250720000{i:03d}",
+                acquisition_channel="FACEBOOK",
+                temperature="CHAUD" if i < 2 else "FROID",
+            )
         sold = Lead.objects.get(full_name="FB0")
         sold.stage = "VENTE"
         sold.save()
@@ -189,15 +275,28 @@ class SummaryTests(TestCase):
 
         s = reporting.summary(30)
         t = s["totals"]
-        self.assertEqual((t["sessions"], t["active_users"], t["searches"], t["properties_viewed"], t["distinct_properties_viewed"]), (4, 3, 1, 2, 1))
+        self.assertEqual(
+            (t["sessions"], t["active_users"], t["searches"], t["properties_viewed"], t["distinct_properties_viewed"]),
+            (4, 3, 1, 2, 1),
+        )
         self.assertEqual((t["downloads"], t["signups"], t["leads"], t["conversions"]), (1, 1, 6, 2))
-        self.assertEqual(t["sales_generated_by_app"], 1)  # la vente saisie à la main (canal « Autre ») n'est pas comptée
+        self.assertEqual(
+            t["sales_generated_by_app"], 1
+        )  # la vente saisie à la main (canal « Autre ») n'est pas comptée
         fb = next(r for r in s["by_channel"] if r["channel"] == "FACEBOOK")
         self.assertEqual((fb["leads"], fb["qualified"], fb["sales"], fb["conversion_rate"]), (4, 2, 1, 0.25))
-        self.assertEqual((fb["spend"], fb["cost_per_lead"], fb["cost_per_sale"]), (Decimal("200000"), Decimal("50000.00"), Decimal("200000.00")))
+        self.assertEqual(
+            (fb["spend"], fb["cost_per_lead"], fb["cost_per_sale"]),
+            (Decimal("200000"), Decimal("50000.00"), Decimal("200000.00")),
+        )
         google = next(r for r in s["by_channel"] if r["channel"] == "GOOGLE")
-        self.assertEqual((google["leads"], google["sales"], google["cost_per_lead"], google["cost_per_sale"]), (1, 0, None, None))
-        self.assertEqual([f["step"] for f in s["funnel"]], ["Sessions", "Recherches", "Biens consultés", "Leads", "Visites demandées", "Ventes"])
+        self.assertEqual(
+            (google["leads"], google["sales"], google["cost_per_lead"], google["cost_per_sale"]), (1, 0, None, None)
+        )
+        self.assertEqual(
+            [f["step"] for f in s["funnel"]],
+            ["Sessions", "Recherches", "Biens consultés", "Leads", "Visites demandées", "Ventes"],
+        )
         self.assertTrue(s["daily"])
 
     def test_period_excludes_old_activity(self):

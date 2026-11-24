@@ -138,7 +138,9 @@ class ProjectDocument(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(DevelopmentProject, on_delete=models.CASCADE, related_name="documents")
-    kind = models.CharField("Type", max_length=10, choices=ProjectDocumentKind.choices, default=ProjectDocumentKind.DOCUMENT)
+    kind = models.CharField(
+        "Type", max_length=10, choices=ProjectDocumentKind.choices, default=ProjectDocumentKind.DOCUMENT
+    )
     title = models.CharField("Titre", max_length=150)
     file = models.FileField("Fichier", upload_to="projects/documents/%Y/%m/")
     created_at = models.DateTimeField(auto_now_add=True)

@@ -45,7 +45,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, force=False, **options):
         if not settings.DEBUG and not force:
-            raise CommandError("Commande de démonstration : refusée quand DEBUG=False (utilisez --force si vous savez ce que vous faites).")
+            raise CommandError(
+                "Commande de démonstration : refusée quand DEBUG=False (utilisez --force si vous savez ce que vous faites)."
+            )
         done = skipped = 0
         for p in Property.objects.filter(latitude__isnull=True):
             base = PLACES.get((p.neighborhood or "").lower()) or PLACES.get((p.commune or "").lower())
@@ -55,4 +57,6 @@ class Command(BaseCommand):
             dy, dx = jitter(str(p.pk))
             Property.objects.filter(pk=p.pk).update(latitude=round(base[0] + dy, 6), longitude=round(base[1] + dx, 6))
             done += 1
-        self.stdout.write(self.style.SUCCESS(f"{done} bien(s) positionné(s) (approximativement), {skipped} sans lieu connu."))
+        self.stdout.write(
+            self.style.SUCCESS(f"{done} bien(s) positionné(s) (approximativement), {skipped} sans lieu connu.")
+        )

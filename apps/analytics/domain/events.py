@@ -31,7 +31,23 @@ SERVER_EVENTS = {FAVORITE_ADD, INQUIRY, WHATSAPP_CLICK, VISIT_REQUESTED, LEAD_CR
 ALL_EVENTS = CLIENT_EVENTS | SERVER_EVENTS
 
 # Une statistique ne doit JAMAIS contenir de donnée personnelle : ces clés sont supprimées d'office.
-FORBIDDEN_KEYS = {"email", "mail", "phone", "phone_number", "telephone", "tel", "name", "full_name", "first_name", "last_name", "password", "token", "access", "refresh", "message"}
+FORBIDDEN_KEYS = {
+    "email",
+    "mail",
+    "phone",
+    "phone_number",
+    "telephone",
+    "tel",
+    "name",
+    "full_name",
+    "first_name",
+    "last_name",
+    "password",
+    "token",
+    "access",
+    "refresh",
+    "message",
+}
 
 MAX_PROPERTIES = 12
 MAX_VALUE_LENGTH = 120

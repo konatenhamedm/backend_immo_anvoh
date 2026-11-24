@@ -171,8 +171,15 @@ class MultiWordSearchTests(TestCase):
 
         def make(title, commune, quarter, kind, **extra):
             return Property.objects.create(
-                title=title, description="d", property_type=kind, price=Decimal("50000000"), commune=commune,
-                neighborhood=quarter, surface_sqm=Decimal("100"), status=PropertyStatus.DISPONIBLE, **extra,
+                title=title,
+                description="d",
+                property_type=kind,
+                price=Decimal("50000000"),
+                commune=commune,
+                neighborhood=quarter,
+                surface_sqm=Decimal("100"),
+                status=PropertyStatus.DISPONIBLE,
+                **extra,
             )
 
         make("Appartement lumineux", "Cocody", "Abatta", "APPARTEMENT", typology="F3")
@@ -216,8 +223,14 @@ class SearchQueryCountTests(TestCase):
         def add(n):
             for i in range(n):
                 p = Property.objects.create(
-                    title=f"Bien {i}", description="d", property_type="VILLA", price=Decimal("50000000"),
-                    commune="Cocody", neighborhood="Angré", surface_sqm=Decimal("100"), status=PropertyStatus.DISPONIBLE,
+                    title=f"Bien {i}",
+                    description="d",
+                    property_type="VILLA",
+                    price=Decimal("50000000"),
+                    commune="Cocody",
+                    neighborhood="Angré",
+                    surface_sqm=Decimal("100"),
+                    status=PropertyStatus.DISPONIBLE,
                 )
                 PropertyImage.objects.create(property=p, external_url="https://x/a.jpg", is_cover=True)
                 PropertyImage.objects.create(property=p, external_url="https://x/b.jpg")
@@ -244,17 +257,42 @@ class GeoSearchTests(TestCase):
     def setUp(self):
         from apps.properties.infrastructure.models import Property
 
-        self.owner = User.objects.create_user(email="o@test.ci", password="Un-Mot2Passe-Solide", first_name="O", last_name="W", phone_number="+2250700000000", role=UserRole.PROPRIETAIRE)
-        self.admin = User.objects.create_user(email="a@test.ci", password="Un-Mot2Passe-Solide", first_name="A", last_name="D", phone_number="+2250700000001", role=UserRole.ADMIN)
+        self.owner = User.objects.create_user(
+            email="o@test.ci",
+            password="Un-Mot2Passe-Solide",
+            first_name="O",
+            last_name="W",
+            phone_number="+2250700000000",
+            role=UserRole.PROPRIETAIRE,
+        )
+        self.admin = User.objects.create_user(
+            email="a@test.ci",
+            password="Un-Mot2Passe-Solide",
+            first_name="A",
+            last_name="D",
+            phone_number="+2250700000001",
+            role=UserRole.ADMIN,
+        )
 
         def make(title, lat, lng, status=PropertyStatus.DISPONIBLE, commune="Cocody", quarter="Riviera"):
             return Property.objects.create(
-                title=title, description="d", property_type="VILLA", price=Decimal("50000000"), commune=commune, neighborhood=quarter,
-                surface_sqm=Decimal("100"), status=status, latitude=lat, longitude=lng, owner=self.owner,
+                title=title,
+                description="d",
+                property_type="VILLA",
+                price=Decimal("50000000"),
+                commune=commune,
+                neighborhood=quarter,
+                surface_sqm=Decimal("100"),
+                status=status,
+                latitude=lat,
+                longitude=lng,
+                owner=self.owner,
             )
 
         self.here = make("Ici", Decimal("5.350000"), Decimal("-3.985000"))
-        self.near = make("Proche (≈ 3,3 km)", Decimal("5.380000"), Decimal("-3.985000"), quarter="Angré")  # 0,03° de latitude ≈ 3,3 km
+        self.near = make(
+            "Proche (≈ 3,3 km)", Decimal("5.380000"), Decimal("-3.985000"), quarter="Angré"
+        )  # 0,03° de latitude ≈ 3,3 km
         self.far = make("Loin (≈ 33 km)", Decimal("5.650000"), Decimal("-3.985000"), commune="Dabou", quarter="Centre")
         self.nowhere = make("Sans position", None, None)
         self.draft = make("Brouillon", Decimal("5.351000"), Decimal("-3.985000"), status=PropertyStatus.BROUILLON)
@@ -275,7 +313,9 @@ class GeoSearchTests(TestCase):
         titles = [r["title"] for r in self._get(lat=5.35, lng=-3.985, radius_km=50)]
         self.assertEqual(sorted(titles), ["Ici", "Loin (≈ 33 km)", "Proche (≈ 3,3 km)"])
         self.assertNotIn("Sans position", titles)
-        self.assertEqual(len(self._get()), 4)  # sans paramètres géographiques : tous les biens publiés, y compris sans position
+        self.assertEqual(
+            len(self._get()), 4
+        )  # sans paramètres géographiques : tous les biens publiés, y compris sans position
 
     def test_haversine_distance_is_accurate(self):
         rows = self._get(lat=5.0, lng=-3.985, radius_km=200, ordering="distance")
@@ -288,7 +328,15 @@ class GeoSearchTests(TestCase):
         self.assertEqual(len(self._get(bbox="5.6,-4.1,5.7,-3.9")), 1)
 
     def test_invalid_geo_parameters_are_ignored_not_fatal(self):
-        for bad in ({"lat": "abc", "lng": "1", "radius_km": "5"}, {"lat": 95, "lng": 0, "radius_km": 5}, {"lat": 5, "lng": -4, "radius_km": 0}, {"lat": 5, "lng": -4, "radius_km": 9999}, {"bbox": "1,2,3"}, {"bbox": "9,9,1,1"}, {"lat": "nan", "lng": 1, "radius_km": 2}):
+        for bad in (
+            {"lat": "abc", "lng": "1", "radius_km": "5"},
+            {"lat": 95, "lng": 0, "radius_km": 5},
+            {"lat": 5, "lng": -4, "radius_km": 0},
+            {"lat": 5, "lng": -4, "radius_km": 9999},
+            {"bbox": "1,2,3"},
+            {"bbox": "9,9,1,1"},
+            {"lat": "nan", "lng": 1, "radius_km": 2},
+        ):
             self.assertEqual(len(self._get(**bad)), 4, bad)
 
     def test_public_positions_are_rounded_but_the_team_and_the_owner_see_them_exactly(self):
@@ -308,7 +356,9 @@ class GeoSearchTests(TestCase):
         r = APIClient().get("/api/v1/properties/places/")
         self.assertEqual(r.status_code, 200)
         by_name = {(p["kind"], p["name"]): p for p in r.data}
-        self.assertEqual(by_name[("commune", "Cocody")]["count"], 2)  # « Ici » et « Proche » : ni le brouillon, ni le bien sans position
+        self.assertEqual(
+            by_name[("commune", "Cocody")]["count"], 2
+        )  # « Ici » et « Proche » : ni le brouillon, ni le bien sans position
         self.assertEqual(by_name[("quartier", "Angré")]["latitude"], 5.38)
         self.assertNotIn(("commune", "Dabou"), {k for k in by_name} - {("commune", "Dabou")})  # (Dabou existe : 1 bien)
         self.assertEqual(by_name[("commune", "Dabou")]["count"], 1)

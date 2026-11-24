@@ -3,7 +3,6 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.properties.domain.images import MAX_UPLOAD_BYTES
-from apps.users.interfaces.permissions import is_staff_or_agent
 from apps.properties.infrastructure.models import (
     DevelopmentProject,
     ProjectDocument,
@@ -13,6 +12,7 @@ from apps.properties.infrastructure.models import (
     PropertyImage,
     PropertyStatus,
 )
+from apps.users.interfaces.permissions import is_staff_or_agent
 
 # Équipements booléens → libellés affichés (complétés par la liste libre `amenities_extra`).
 AMENITY_FLAGS = [

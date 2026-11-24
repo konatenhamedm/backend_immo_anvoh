@@ -8,12 +8,16 @@ from rest_framework.views import APIView
 from apps.notifications.infrastructure.models import FollowUpStatus, FollowUpTask, Notification
 from apps.users.interfaces.permissions import IsStaffOrAgent, is_admin
 
-from .serializers import FollowUpTaskSerializer, NotificationSerializer, UnreadCountSerializer
+from .serializers import FollowUpTaskSerializer, NotificationCountSerializer, NotificationSerializer
 
 TAG = ["Notifications"]
 
 
-@extend_schema(tags=TAG, summary="Mes notifications", parameters=[OpenApiParameter("unread", bool, description="1 = non lues seulement")])
+@extend_schema(
+    tags=TAG,
+    summary="Mes notifications",
+    parameters=[OpenApiParameter("unread", bool, description="1 = non lues seulement")],
+)
 class NotificationListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = NotificationSerializer
@@ -25,7 +29,7 @@ class NotificationListView(generics.ListAPIView):
         return qs
 
 
-@extend_schema(tags=TAG, summary="Nombre de notifications non lues", responses={200: UnreadCountSerializer})
+@extend_schema(tags=TAG, summary="Nombre de notifications non lues", responses={200: NotificationCountSerializer})
 class NotificationUnreadCountView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -33,7 +37,9 @@ class NotificationUnreadCountView(APIView):
         return Response({"unread": Notification.objects.filter(user=request.user, read_at__isnull=True).count()})
 
 
-@extend_schema(tags=TAG, summary="Marquer une notification comme lue", request=None, responses={200: NotificationSerializer})
+@extend_schema(
+    tags=TAG, summary="Marquer une notification comme lue", request=None, responses={200: NotificationSerializer}
+)
 class NotificationReadView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -45,7 +51,7 @@ class NotificationReadView(APIView):
         return Response(NotificationSerializer(n).data)
 
 
-@extend_schema(tags=TAG, summary="Tout marquer comme lu", request=None, responses={200: UnreadCountSerializer})
+@extend_schema(tags=TAG, summary="Tout marquer comme lu", request=None, responses={200: NotificationCountSerializer})
 class NotificationReadAllView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -64,7 +70,9 @@ class FollowUpListView(generics.ListAPIView):
         return qs if is_admin(self.request.user) else qs.filter(assigned_to=self.request.user)
 
 
-@extend_schema(tags=TAG, summary="Marquer une relance comme faite", request=None, responses={200: FollowUpTaskSerializer})
+@extend_schema(
+    tags=TAG, summary="Marquer une relance comme faite", request=None, responses={200: FollowUpTaskSerializer}
+)
 class FollowUpDoneView(APIView):
     permission_classes = [IsStaffOrAgent]
 

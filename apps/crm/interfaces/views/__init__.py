@@ -10,7 +10,13 @@ from .admin_requests import (
 )
 from .buyer import MyRequestsView, MyVisitCancelView, SearchAlertDetailView, SearchAlertListCreateView
 from .owner import OwnerVisitListView, OwnerVisitUpdateView
-from .public_forms import DiasporaContactView, FindMyPropertyView, PropertyInquiryView, ScheduleVisitView, WhatsAppClickTrackView
+from .public_forms import (
+    DiasporaContactView,
+    FindMyPropertyView,
+    PropertyInquiryView,
+    ScheduleVisitView,
+    WhatsAppClickTrackView,
+)
 
 __all__ = [
     "PropertyInquiryView",

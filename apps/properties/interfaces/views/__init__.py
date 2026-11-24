@@ -21,10 +21,10 @@ from .images import PropertyImageDetailView, PropertyImageUploadView
 from .owner import OwnerDashboardView, OwnerPropertyDetailView, OwnerPropertyListCreateView
 from .projects import (
     DevelopmentProjectBySlugView,
-    ProjectDocumentCreateView,
-    ProjectDocumentDeleteView,
     DevelopmentProjectDetailView,
     DevelopmentProjectListView,
+    ProjectDocumentCreateView,
+    ProjectDocumentDeleteView,
     ProjectLotDetailView,
     ProjectLotListCreateView,
 )

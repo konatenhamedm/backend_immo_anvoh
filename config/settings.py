@@ -200,6 +200,9 @@ SPECTACULAR_SETTINGS = {
         "PayoutStatusEnum": "apps.rentals.infrastructure.models.PayoutStatus",
         "IdentityStatusEnum": "apps.users.infrastructure.models.IdentityStatus",
         "UserRoleEnum": "apps.users.infrastructure.models.UserRole",
+        "AcquisitionChannelEnum": "apps.crm.infrastructure.models.AcquisitionChannel",
+        "ProjectDocumentKindEnum": "apps.properties.infrastructure.models.ProjectDocumentKind",
+        "NotificationKindEnum": "apps.notifications.domain.kinds.KIND_CHOICES",
     },
 }
 

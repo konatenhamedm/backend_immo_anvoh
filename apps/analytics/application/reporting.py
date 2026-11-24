@@ -83,7 +83,9 @@ def summary(days: int = 30) -> dict:
     first_month = start.date().replace(day=1)
     spend = {
         r["channel"]: r["total"]
-        for r in ChannelSpend.objects.filter(month__gte=first_month, month__lte=now.date()).values("channel").annotate(total=Sum("amount"))
+        for r in ChannelSpend.objects.filter(month__gte=first_month, month__lte=now.date())
+        .values("channel")
+        .annotate(total=Sum("amount"))
     }
     labels = dict(AcquisitionChannel.choices)
     by_channel = []
@@ -106,10 +108,16 @@ def summary(days: int = 30) -> dict:
         )
 
     daily = {}
-    for row in events.filter(name=ev.SESSION_START).annotate(d=TruncDate("occurred_at")).values("d").annotate(n=Count("id")):
-        daily.setdefault(row["d"].isoformat(), {"date": row["d"].isoformat(), "sessions": 0, "leads": 0})["sessions"] = row["n"]
+    for row in (
+        events.filter(name=ev.SESSION_START).annotate(d=TruncDate("occurred_at")).values("d").annotate(n=Count("id"))
+    ):
+        daily.setdefault(row["d"].isoformat(), {"date": row["d"].isoformat(), "sessions": 0, "leads": 0})[
+            "sessions"
+        ] = row["n"]
     for row in leads.annotate(d=TruncDate("created_at")).values("d").annotate(n=Count("id")):
-        daily.setdefault(row["d"].isoformat(), {"date": row["d"].isoformat(), "sessions": 0, "leads": 0})["leads"] = row["n"]
+        daily.setdefault(row["d"].isoformat(), {"date": row["d"].isoformat(), "sessions": 0, "leads": 0})["leads"] = (
+            row["n"]
+        )
 
     return {
         "period": {"days": days, "from": start.date().isoformat(), "to": now.date().isoformat()},

@@ -188,7 +188,13 @@ class ThrottlingTests(TestCase):
         self.assertEqual(set(codes[20:]), {429})
 
     def test_public_forms_are_limited(self):
-        for path in ("crm/inquiries/", "crm/whatsapp-click/", "crm/find-my-property/", "crm/diaspora-contact/", "crm/visits/schedule/"):
+        for path in (
+            "crm/inquiries/",
+            "crm/whatsapp-click/",
+            "crm/find-my-property/",
+            "crm/diaspora-contact/",
+            "crm/visits/schedule/",
+        ):
             cache.clear()
             codes = self._hammer(path, {}, 12)
             self.assertNotIn(429, codes[:10], path)

@@ -9,7 +9,9 @@ from apps.notifications.application.service import suppressed
 log = logging.getLogger(__name__)
 
 
-def record(name: str, *, user=None, anonymous_id: str = "", channel: str = "", path: str = "", properties: dict | None = None):
+def record(
+    name: str, *, user=None, anonymous_id: str = "", channel: str = "", path: str = "", properties: dict | None = None
+):
     """Enregistre un événement (sauf pendant seed_data / load_demo_data). Renvoie l'événement, ou None."""
     if name not in ALL_EVENTS or suppressed():
         return None

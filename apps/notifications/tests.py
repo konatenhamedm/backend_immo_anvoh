@@ -22,7 +22,13 @@ PASSWORD = "Un-Mot2Passe-Solide"
 
 def make_user(email, role=UserRole.PARTICULIER, **extra):
     return User.objects.create_user(
-        email=email, password=PASSWORD, first_name="Test", last_name="Nom", phone_number="+2250700000000", role=role, **extra
+        email=email,
+        password=PASSWORD,
+        first_name="Test",
+        last_name="Nom",
+        phone_number="+2250700000000",
+        role=role,
+        **extra,
     )
 
 
@@ -61,7 +67,12 @@ class LeadNotificationTests(TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             return APIClient().post(
                 "/api/v1/crm/inquiries/",
-                {"property_id": str(self.prop.id), "full_name": "Awa Traoré", "phone_number": phone, "objective": "Investir"},
+                {
+                    "property_id": str(self.prop.id),
+                    "full_name": "Awa Traoré",
+                    "phone_number": phone,
+                    "objective": "Investir",
+                },
                 format="json",
             )
 
@@ -74,7 +85,9 @@ class LeadNotificationTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["agent@test.ci"])
         self.assertIn("http://localhost:3100/admin/crm?lead=", mail.outbox[0].body)
-        self.assertEqual(Notification.objects.filter(user=self.admin).count(), 0)  # l'admin n'est prévenu qu'à défaut de conseiller
+        self.assertEqual(
+            Notification.objects.filter(user=self.admin).count(), 0
+        )  # l'admin n'est prévenu qu'à défaut de conseiller
         n.refresh_from_db()
         self.assertIsNotNone(n.emailed_at)
 
@@ -105,7 +118,9 @@ class LeadNotificationTests(TestCase):
                     "full_name": "Client Test",
                     "phone_number": "0708080808",
                     "visit_type": "PHYSIQUE",
-                    "scheduled_date": str(date.today() + timedelta(days=(5 - date.today().weekday()) % 7 + 7)),  # un samedi
+                    "scheduled_date": str(
+                        date.today() + timedelta(days=(5 - date.today().weekday()) % 7 + 7)
+                    ),  # un samedi
                     "scheduled_time": "10:00",
                 },
                 format="json",
@@ -159,7 +174,9 @@ class LeadNotificationTests(TestCase):
 class AlertAndPriceTests(TestCase):
     def setUp(self):
         self.user = make_user("client@test.ci")
-        self.alert = SearchAlert.objects.create(user=self.user, commune="Cocody", transaction="VENTE", max_budget=Decimal("80000000"))
+        self.alert = SearchAlert.objects.create(
+            user=self.user, commune="Cocody", transaction="VENTE", max_budget=Decimal("80000000")
+        )
 
     def test_publishing_a_matching_property_notifies_the_alert_owner_once(self):
         draft = make_property("Brouillon", status=PropertyStatus.BROUILLON)
@@ -297,9 +314,16 @@ class FollowUpTests(TestCase):
         mine = FollowUpTask.objects.create(lead=self.lead, assigned_to=self.agent, reason="x", due_date=date.today())
         theirs_lead = Lead.objects.create(full_name="Autre", phone_number="+2250705050505", assigned_agent=other_agent)
         FollowUpTask.objects.create(lead=theirs_lead, assigned_to=other_agent, reason="y", due_date=date.today())
-        self.assertEqual([t["id"] for t in client_for(self.agent).get("/api/v1/notifications/followups/").data["results"]], [str(mine.id)])
+        self.assertEqual(
+            [t["id"] for t in client_for(self.agent).get("/api/v1/notifications/followups/").data["results"]],
+            [str(mine.id)],
+        )
         self.assertEqual(len(client_for(self.admin).get("/api/v1/notifications/followups/").data["results"]), 2)
-        self.assertEqual(client_for(make_user("buyer@test.ci")).get("/api/v1/notifications/followups/").status_code, 403)
+        self.assertEqual(
+            client_for(make_user("buyer@test.ci")).get("/api/v1/notifications/followups/").status_code, 403
+        )
         # Un conseiller ne peut pas clore la relance d'un collègue.
         theirs = FollowUpTask.objects.get(lead=theirs_lead)
-        self.assertEqual(client_for(self.agent).post(f"/api/v1/notifications/followups/{theirs.id}/done/").status_code, 404)
+        self.assertEqual(
+            client_for(self.agent).post(f"/api/v1/notifications/followups/{theirs.id}/done/").status_code, 404
+        )

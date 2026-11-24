@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .infrastructure.models import DevelopmentProject, ProjectDocument, ProjectLot, Property, PropertyFavorite, PropertyImage
+from .infrastructure.models import (
+    DevelopmentProject,
+    ProjectDocument,
+    ProjectLot,
+    Property,
+    PropertyFavorite,
+    PropertyImage,
+)
 
 
 class PropertyImageInline(admin.TabularInline):

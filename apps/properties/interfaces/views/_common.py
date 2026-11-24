@@ -65,7 +65,11 @@ def _type_codes_for(word: str) -> list[str]:
     candidates = {w, w[:-1] if w.endswith("s") else w}
     if len(w) < 3:
         return []
-    return [code for code, label in PropertyType.choices if any(label.lower().startswith(c) for c in candidates if len(c) >= 3)]
+    return [
+        code
+        for code, label in PropertyType.choices
+        if any(label.lower().startswith(c) for c in candidates if len(c) >= 3)
+    ]
 
 
 def _word_matches(word: str) -> Q:
@@ -121,7 +125,9 @@ def apply_geo_filters(qs, params):
         dlng = radius / (111.0 * max(math.cos(math.radians(lat)), 0.01))
         qs = (
             qs.exclude(latitude__isnull=True, longitude__isnull=True)
-            .filter(latitude__gte=lat - dlat, latitude__lte=lat + dlat, longitude__gte=lng - dlng, longitude__lte=lng + dlng)  # pré-filtre
+            .filter(
+                latitude__gte=lat - dlat, latitude__lte=lat + dlat, longitude__gte=lng - dlng, longitude__lte=lng + dlng
+            )  # pré-filtre
             .annotate(distance_km=distance_expression(lat, lng))
             .filter(distance_km__lte=radius)
         )

@@ -20,9 +20,9 @@ from apps.users.interfaces.permissions import IsStaffOrAgent, ReadOnlyOr
 from ..schemas import CatalogMetaSchema, PropertySlugSchema
 from ..serializers import (
     DevelopmentProjectSummarySerializer,
-    PlacesResponseSerializer,
     HomeScreenResponseSerializer,
     InvestmentScreenResponseSerializer,
+    PlacesResponseSerializer,
     PropertyAdminWriteSerializer,
     PropertyCardSerializer,
     PropertyDetailSerializer,
@@ -89,9 +89,15 @@ class HomeScreenView(APIView):
         OpenApiParameter("status", str, description="Disponibilité : DISPONIBLE | OPTION | RESERVE"),
         OpenApiParameter("lat", float, description="Latitude du point de recherche (avec lng et radius_km)"),
         OpenApiParameter("lng", float, description="Longitude du point de recherche"),
-        OpenApiParameter("radius_km", float, description="Rayon en km (0,1 à 200) : biens autour du point, distance_km renvoyée"),
+        OpenApiParameter(
+            "radius_km", float, description="Rayon en km (0,1 à 200) : biens autour du point, distance_km renvoyée"
+        ),
         OpenApiParameter("bbox", str, description="Zone de carte : sud,ouest,nord,est"),
-        OpenApiParameter("ordering", str, description="price, -price, -created_at, -estimated_yield_rate, relevance, distance (avec lat/lng/radius_km)…"),
+        OpenApiParameter(
+            "ordering",
+            str,
+            description="price, -price, -created_at, -estimated_yield_rate, relevance, distance (avec lat/lng/radius_km)…",
+        ),
         OpenApiParameter("page_size", int, description="Jusqu'à 100"),
     ],
     responses={200: PropertyCardSerializer(many=True)},
@@ -220,7 +226,11 @@ class PlacesView(APIView):
         base = public_qs().exclude(latitude__isnull=True).exclude(longitude__isnull=True)
         out = []
         for kind, fields in (("commune", ("commune",)), ("quartier", ("commune", "neighborhood"))):
-            for row in base.values(*fields).annotate(lat=Avg("latitude"), lng=Avg("longitude"), n=Count("id")).order_by(*fields):
+            for row in (
+                base.values(*fields)
+                .annotate(lat=Avg("latitude"), lng=Avg("longitude"), n=Count("id"))
+                .order_by(*fields)
+            ):
                 out.append(
                     {
                         "kind": kind,

@@ -15,7 +15,7 @@ class NotificationSerializer(serializers.ModelSerializer):
         return obj.read_at is not None
 
 
-class UnreadCountSerializer(serializers.Serializer):
+class NotificationCountSerializer(serializers.Serializer):
     unread = serializers.IntegerField()
 
 
@@ -27,7 +27,20 @@ class FollowUpTaskSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FollowUpTask
-        fields = ["id", "lead", "lead_name", "lead_phone", "lead_stage", "assigned_to", "assigned_to_name", "reason", "due_date", "status", "created_at", "completed_at"]
+        fields = [
+            "id",
+            "lead",
+            "lead_name",
+            "lead_phone",
+            "lead_stage",
+            "assigned_to",
+            "assigned_to_name",
+            "reason",
+            "due_date",
+            "status",
+            "created_at",
+            "completed_at",
+        ]
         read_only_fields = fields
 
     def get_assigned_to_name(self, obj) -> str:

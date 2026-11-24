@@ -15,9 +15,9 @@ from apps.users.interfaces.permissions import IsStaffOrAgent, ReadOnlyOr
 
 from ..serializers import (
     DevelopmentProjectSerializer,
+    DevelopmentProjectSummarySerializer,
     ProjectDocumentSerializer,
     ProjectDocumentUploadSerializer,
-    DevelopmentProjectSummarySerializer,
     ProjectLotSerializer,
 )
 from ._common import project_summaries
@@ -94,11 +94,14 @@ class ProjectDocumentCreateView(generics.GenericAPIView):
         s = ProjectDocumentUploadSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         doc = ProjectDocument.objects.create(project=project, **s.validated_data)
-        return Response(ProjectDocumentSerializer(doc, context={"request": request}).data, status=status.HTTP_201_CREATED)
+        return Response(
+            ProjectDocumentSerializer(doc, context={"request": request}).data, status=status.HTTP_201_CREATED
+        )
 
 
 @extend_schema(tags=["Programmes Neufs"], summary="Retirer un plan ou un document (équipe)")
 class ProjectDocumentDeleteView(generics.DestroyAPIView):
     permission_classes = [IsStaffOrAgent]
+    serializer_class = ProjectDocumentSerializer
     queryset = ProjectDocument.objects.all()
     lookup_field = "id"

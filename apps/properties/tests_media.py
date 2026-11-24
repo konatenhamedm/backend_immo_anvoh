@@ -24,7 +24,14 @@ def png(width, height, mode="RGB", color=(30, 90, 200)):
 
 
 def make_user(email, role):
-    return User.objects.create_user(email=email, password="Un-Mot2Passe-Solide", first_name="T", last_name="N", phone_number="+2250700000000", role=role)
+    return User.objects.create_user(
+        email=email,
+        password="Un-Mot2Passe-Solide",
+        first_name="T",
+        last_name="N",
+        phone_number="+2250700000000",
+        role=role,
+    )
 
 
 def client_for(user):
@@ -52,10 +59,22 @@ class PhotoOptimizationTests(TestCase):
 
     def setUp(self):
         self.owner = make_user("owner@test.ci", UserRole.PROPRIETAIRE)
-        self.prop = Property.objects.create(title="Villa", description="d", property_type="VILLA", price=Decimal("1"), commune="Cocody", neighborhood="Angré", surface_sqm=Decimal("90"), status=PropertyStatus.DISPONIBLE, owner=self.owner)
+        self.prop = Property.objects.create(
+            title="Villa",
+            description="d",
+            property_type="VILLA",
+            price=Decimal("1"),
+            commune="Cocody",
+            neighborhood="Angré",
+            surface_sqm=Decimal("90"),
+            status=PropertyStatus.DISPONIBLE,
+            owner=self.owner,
+        )
 
     def _upload(self, f):
-        return client_for(self.owner).post(f"/api/v1/properties/{self.prop.id}/images/", {"image": f}, format="multipart")
+        return client_for(self.owner).post(
+            f"/api/v1/properties/{self.prop.id}/images/", {"image": f}, format="multipart"
+        )
 
     def test_big_photo_is_resized_recompressed_and_gets_a_thumbnail(self):
         original = png(4000, 3000)
@@ -115,10 +134,22 @@ class ProjectPaymentAndDocumentsTests(TestCase):
     def setUp(self):
         self.admin = make_user("admin@test.ci", UserRole.ADMIN)
         self.buyer = make_user("buyer@test.ci", UserRole.PARTICULIER)
-        self.project = DevelopmentProject.objects.create(name="Résidence Test", developer_name="SCI", commune="Cocody", neighborhood="Angré", description="d", starting_price=Decimal("30000000"))
+        self.project = DevelopmentProject.objects.create(
+            name="Résidence Test",
+            developer_name="SCI",
+            commune="Cocody",
+            neighborhood="Angré",
+            description="d",
+            starting_price=Decimal("30000000"),
+        )
 
     def _doc(self, name="plan.pdf", content=b"%PDF-1.4 test", **extra):
-        return {"title": "Plan de masse", "kind": "PLAN", "file": SimpleUploadedFile(name, content, content_type="application/pdf"), **extra}
+        return {
+            "title": "Plan de masse",
+            "kind": "PLAN",
+            "file": SimpleUploadedFile(name, content, content_type="application/pdf"),
+            **extra,
+        }
 
     def test_team_can_add_and_remove_plans_and_documents(self):
         c = client_for(self.admin)
@@ -129,7 +160,9 @@ class ProjectPaymentAndDocumentsTests(TestCase):
         self.assertEqual([d["title"] for d in public["documents"]], ["Plan de masse"])
         self.assertTrue(public["documents"][0]["url"].startswith("http"))
         self.assertEqual(c.delete(f"/api/v1/properties/projects/documents/{r.data['id']}/").status_code, 204)
-        self.assertEqual(APIClient().get(f"/api/v1/properties/projects/slug/{self.project.slug}/").data["documents"], [])
+        self.assertEqual(
+            APIClient().get(f"/api/v1/properties/projects/slug/{self.project.slug}/").data["documents"], []
+        )
 
     def test_only_the_team_can_upload_and_only_safe_formats(self):
         url = f"/api/v1/properties/projects/{self.project.id}/documents/"
@@ -137,17 +170,46 @@ class ProjectPaymentAndDocumentsTests(TestCase):
         self.assertEqual(APIClient().post(url, self._doc(), format="multipart").status_code, 401)
         bad = client_for(self.admin).post(url, self._doc(name="installer.exe", content=b"MZ"), format="multipart")
         self.assertEqual(bad.status_code, 400)
-        with mock.patch.object(__import__("apps.properties.interfaces.serializers", fromlist=["x"]).ProjectDocumentUploadSerializer, "MAX_BYTES", 5):
-            big = client_for(self.admin).post(url, self._doc(content=b"%PDF-1.4 plus de cinq octets"), format="multipart")
+        with mock.patch.object(
+            __import__("apps.properties.interfaces.serializers", fromlist=["x"]).ProjectDocumentUploadSerializer,
+            "MAX_BYTES",
+            5,
+        ):
+            big = client_for(self.admin).post(
+                url, self._doc(content=b"%PDF-1.4 plus de cinq octets"), format="multipart"
+            )
         self.assertEqual(big.status_code, 400)
         self.assertEqual(self.project.documents.count(), 0)
 
     def test_payment_schedule_is_saved_and_cannot_exceed_100_percent(self):
         c = client_for(self.admin)
         url = f"/api/v1/properties/projects/{self.project.id}/"
-        ok = c.patch(url, {"payment_schedule": [{"label": "Réservation", "percent": 10}, {"label": "Fondations", "percent": 30}, {"label": "Livraison", "percent": 60}], "payment_notes": "Paiement par virement."}, format="json")
+        ok = c.patch(
+            url,
+            {
+                "payment_schedule": [
+                    {"label": "Réservation", "percent": 10},
+                    {"label": "Fondations", "percent": 30},
+                    {"label": "Livraison", "percent": 60},
+                ],
+                "payment_notes": "Paiement par virement.",
+            },
+            format="json",
+        )
         self.assertEqual(ok.status_code, 200)
-        self.assertEqual([s["percent"] for s in APIClient().get(f"/api/v1/properties/projects/slug/{self.project.slug}/").data["payment_schedule"]], [10, 30, 60])
-        too_much = c.patch(url, {"payment_schedule": [{"label": "A", "percent": 70}, {"label": "B", "percent": 40}]}, format="json")
+        self.assertEqual(
+            [
+                s["percent"]
+                for s in APIClient()
+                .get(f"/api/v1/properties/projects/slug/{self.project.slug}/")
+                .data["payment_schedule"]
+            ],
+            [10, 30, 60],
+        )
+        too_much = c.patch(
+            url, {"payment_schedule": [{"label": "A", "percent": 70}, {"label": "B", "percent": 40}]}, format="json"
+        )
         self.assertEqual(too_much.status_code, 400)
-        self.assertEqual(c.patch(url, {"payment_schedule": [{"label": "A", "percent": -5}]}, format="json").status_code, 400)
+        self.assertEqual(
+            c.patch(url, {"payment_schedule": [{"label": "A", "percent": -5}]}, format="json").status_code, 400
+        )

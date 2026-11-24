@@ -14,7 +14,9 @@ class AnalyticsEvent(models.Model):
     occurred_at = models.DateTimeField("Date", auto_now_add=True)
     # Identifiant aléatoire du navigateur (pas une personne) : compte les utilisateurs actifs sans les identifier.
     anonymous_id = models.CharField(max_length=64, blank=True)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="analytics_events")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="analytics_events"
+    )
     channel = models.CharField("Canal", max_length=20, blank=True, choices=AcquisitionChannel.choices)
     path = models.CharField(max_length=200, blank=True)
     properties = models.JSONField(default=dict, blank=True)

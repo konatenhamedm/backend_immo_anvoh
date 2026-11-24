@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     AdminDashboardView,
+    DiasporaContactView,
     FindMyPropertyView,
     GlobalSearchView,
     LeadCreateAdminView,
@@ -21,7 +22,6 @@ from .views import (
     VisitRequestDetailAdminView,
     VisitRequestListAdminView,
     WhatsAppClickTrackView,
-    DiasporaContactView,
 )
 
 urlpatterns = [

@@ -55,7 +55,11 @@ def property_post_save(sender, instance, created, raw=False, **kwargs):
                 SearchAlert.objects.filter(pk=alert.pk).update(last_notified_at=timezone.now())
 
     old_price = old.get("price")
-    if old_price is not None and instance.price < old_price and instance.status in (PropertyStatus.DISPONIBLE, PropertyStatus.OPTION):
+    if (
+        old_price is not None
+        and instance.price < old_price
+        and instance.status in (PropertyStatus.DISPONIBLE, PropertyStatus.OPTION)
+    ):
         for fav in PropertyFavorite.objects.filter(property=instance).select_related("user"):
             notify(
                 fav.user,

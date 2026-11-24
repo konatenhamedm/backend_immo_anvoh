@@ -71,7 +71,9 @@ def notify(user, kind: str, title: str, body: str = "", url: str = "", dedupe_ke
         return None
     try:
         with transaction.atomic():
-            n = Notification.objects.create(user=user, kind=kind, title=title[:200], body=body, url=url, dedupe_key=dedupe_key)
+            n = Notification.objects.create(
+                user=user, kind=kind, title=title[:200], body=body, url=url, dedupe_key=dedupe_key
+            )
     except IntegrityError:  # même notification déjà envoyée (dedupe_key)
         return None
     except Exception:  # noqa: BLE001
