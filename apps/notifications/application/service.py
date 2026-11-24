@@ -24,7 +24,15 @@ from apps.users.infrastructure.models import User, UserRole
 log = logging.getLogger(__name__)
 
 # Commandes qui fabriquent des données en masse : on n'envoie rien (sinon des centaines de messages fictifs).
-SILENT_COMMANDS = {"seed_data", "load_demo_data", "export_demo_data", "loaddata", "flush", "migrate"}
+SILENT_COMMANDS = {
+    "seed_data",
+    "seed_demo_scenarios",
+    "load_demo_data",
+    "export_demo_data",
+    "loaddata",
+    "flush",
+    "migrate",
+}
 
 
 def suppressed() -> bool:

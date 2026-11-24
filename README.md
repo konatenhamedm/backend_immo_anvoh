@@ -43,6 +43,7 @@ Comptes de démo (mot de passe `Demo12345!`) : `admin@thiebbro.ci`, `aminata.age
 | `python manage.py migrate` | met à jour la **structure** de la base (tables, colonnes, index) : à relancer après chaque `git pull` |
 | `python manage.py load_demo_data` | migre, puis charge `fixtures/demo_data.json` et copie `fixtures/demo_media/` : met à jour les **données** |
 | `python manage.py load_demo_data --no-migrate` | idem sans les migrations |
+| `python manage.py seed_demo_scenarios` | **à lancer après** `load_demo_data` : complète la base pour tourner des vidéos de démonstration (prospects à toutes les étapes et ventes des derniers mois, visites cette semaine, relances en retard, demandes d'informations, alertes et favoris, échéanciers et plans des programmes, dossiers d'accréditation à tous les stades, mesure d'audience sur 60 jours, dépenses marketing, cloches des comptes). Dates relatives à aujourd'hui : relançable avant chaque tournage. `--export` réécrit `fixtures/demo_data.json` |
 | `python manage.py export_demo_data` | régénère `fixtures/` depuis la base actuelle (voir avertissement ci-dessous) |
 | `python manage.py seed_data` | alternative : FABRIQUE des données neuves, dates relatives à aujourd'hui |
 
