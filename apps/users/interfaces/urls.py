@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
+    GoogleLoginView,
     IdentityDocumentView,
     LoginCodeRequestView,
     LoginCodeVerifyView,
@@ -20,6 +21,7 @@ urlpatterns = [
     path("login/", LoginView.as_view(), name="auth-login"),
     path("password/forgot/", PasswordForgotView.as_view(), name="password-forgot"),
     path("password/reset/", PasswordResetView.as_view(), name="password-reset"),
+    path("google/", GoogleLoginView.as_view(), name="login-google"),
     path("code/request/", LoginCodeRequestView.as_view(), name="login-code-request"),
     path("code/verify/", LoginCodeVerifyView.as_view(), name="login-code-verify"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),

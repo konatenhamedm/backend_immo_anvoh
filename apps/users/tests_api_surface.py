@@ -28,6 +28,7 @@ PUBLIC_OPERATIONS = {
     ("post", "auth/password/reset/"),
     ("post", "auth/code/request/"),
     ("post", "auth/code/verify/"),
+    ("post", "auth/google/"),
     # Catalogue public
     ("get", "properties/home/"),
     ("get", "properties/search/"),

@@ -186,3 +186,7 @@ class PasswordResetSerializer(serializers.Serializer):
 class LoginCodeVerifySerializer(serializers.Serializer):
     email = serializers.EmailField()
     code = serializers.RegexField(r"^\d{6}$", error_messages={"invalid": "Le code comporte 6 chiffres."})
+
+
+class GoogleLoginSerializer(serializers.Serializer):
+    credential = serializers.CharField(help_text="Jeton d'identité (ID token) fourni par Google Identity Services.")

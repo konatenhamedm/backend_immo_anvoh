@@ -69,3 +69,52 @@ class AccountAccessTests(TestCase):
         self.post("code/request/", {"email": "awa@test.ci"})
         self.post("password/forgot/", {"email": "awa@test.ci"})
         assert mail.outbox == []
+
+
+class GoogleLoginTests(TestCase):
+    URL = "/api/v1/auth/google/"
+
+    def setUp(self):
+        self.c = APIClient()
+
+    def claims(self, **kw):
+        return {"email": "nouvelle@test.ci", "email_verified": True, "given_name": "Nina", "family_name": "Koné", **kw}
+
+    def test_disabled_without_client_id(self):
+        with self.settings(GOOGLE_CLIENT_ID=""):
+            assert self.c.post(self.URL, {"credential": "x"}, format="json").status_code == 501
+
+    def test_invalid_token_is_refused(self):
+        with self.settings(GOOGLE_CLIENT_ID="cid"):
+            assert self.c.post(self.URL, {"credential": "pas-un-jeton"}, format="json").status_code == 400
+
+    def test_creates_then_reuses_account(self):
+        from unittest import mock
+
+        with (
+            self.settings(GOOGLE_CLIENT_ID="cid"),
+            mock.patch("apps.users.application.google_login.verify", return_value=self.claims()),
+        ):
+            r = self.c.post(self.URL, {"credential": "ok"}, format="json")
+            assert r.status_code == 200 and r.json()["user"]["role"] == "PARTICULIER"
+            again = self.c.post(self.URL, {"credential": "ok"}, format="json")
+            assert again.json()["user"]["id"] == r.json()["user"]["id"]
+        assert User.objects.filter(email="nouvelle@test.ci").count() == 1
+        assert not User.objects.get(email="nouvelle@test.ci").has_usable_password()
+
+    def test_staff_accounts_cannot_use_google(self):
+        from unittest import mock
+
+        User.objects.create_user(
+            email="boss@test.ci",
+            password="Un-Mot2Passe-Solide",
+            first_name="B",
+            last_name="B",
+            phone_number="0700000000",
+            role=UserRole.ADMIN,
+        )
+        with (
+            self.settings(GOOGLE_CLIENT_ID="cid"),
+            mock.patch("apps.users.application.google_login.verify", return_value=self.claims(email="boss@test.ci")),
+        ):
+            assert self.c.post(self.URL, {"credential": "ok"}, format="json").status_code == 400

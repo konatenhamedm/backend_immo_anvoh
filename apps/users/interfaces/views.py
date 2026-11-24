@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.users.application import account_access
+from apps.users.application import account_access, google_login
 from apps.users.infrastructure.models import IdentityStatus, User
 
 from .permissions import IsAdminRole
@@ -15,6 +15,7 @@ from .serializers import (
     AdminUserSerializer,
     AuthTokenResponseSerializer,
     EmailOnlySerializer,
+    GoogleLoginSerializer,
     IdentityDocumentSerializer,
     LoginCodeVerifySerializer,
     LoginInputSerializer,
@@ -233,4 +234,25 @@ class LoginCodeVerifyView(ScopedThrottleMixin, APIView):
         user = account_access.verify_login_code(s.validated_data["email"], s.validated_data["code"])
         if not user:
             return Response({"detail": "Code incorrect ou expiré."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(_tokens_for(user))
+
+
+@extend_schema(
+    tags=["Authentification & Profil"],
+    request=GoogleLoginSerializer,
+    responses={200: AuthTokenResponseSerializer},
+    summary="Se connecter (ou créer son compte) avec Google",
+)
+class GoogleLoginView(ScopedThrottleMixin, APIView):
+    throttle_scope = "auth"
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        s = GoogleLoginSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        try:
+            user = google_login.login(s.validated_data["credential"])
+        except google_login.GoogleLoginError as e:
+            code = status.HTTP_501_NOT_IMPLEMENTED if "activée" in str(e) else status.HTTP_400_BAD_REQUEST
+            return Response({"detail": str(e)}, status=code)
         return Response(_tokens_for(user))

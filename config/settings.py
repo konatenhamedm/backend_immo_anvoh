@@ -236,3 +236,6 @@ EMAIL_TIMEOUT = 10  # secondes : un serveur de messagerie lent ne doit pas bloqu
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "THIEBBRO IMMO <no-reply@thiebbro.ci>")
 # Adresse publique du site, utilisée pour les liens dans les e-mails.
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3100")
+
+# Connexion avec Google : identifiant client OAuth « Web » (Google Cloud Console). Vide = fonction désactivée.
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
