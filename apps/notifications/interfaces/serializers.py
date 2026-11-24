@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.notifications.infrastructure.models import FollowUpTask, Notification
@@ -45,3 +46,16 @@ class FollowUpTaskSerializer(serializers.ModelSerializer):
 
     def get_assigned_to_name(self, obj) -> str:
         return f"{obj.assigned_to.first_name} {obj.assigned_to.last_name}".strip() if obj.assigned_to else ""
+
+
+class FollowUpCreateSerializer(serializers.Serializer):
+    """Planifier une relance sur un prospect (rappel à faire à une date donnée)."""
+
+    lead = serializers.UUIDField()
+    reason = serializers.CharField(max_length=255)
+    due_date = serializers.DateField(required=False, help_text="Défaut : aujourd'hui")
+
+    def validate_due_date(self, value):
+        if value < timezone.localdate():
+            raise serializers.ValidationError("La date de relance ne peut pas être passée.")
+        return value

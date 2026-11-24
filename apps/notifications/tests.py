@@ -327,3 +327,53 @@ class FollowUpTests(TestCase):
         self.assertEqual(
             client_for(self.agent).post(f"/api/v1/notifications/followups/{theirs.id}/done/").status_code, 404
         )
+
+
+class FollowUpPlanningTests(TestCase):
+    """Un conseiller planifie lui-même une relance sur un prospect."""
+
+    URL = "/api/v1/notifications/followups/"
+
+    def setUp(self):
+        self.agent = make_user("agent@test.ci", UserRole.AGENT)
+        self.admin = make_user("admin@test.ci", UserRole.ADMIN)
+        self.lead = Lead.objects.create(
+            full_name="À rappeler", phone_number="+2250706060606", assigned_agent=self.agent
+        )
+
+    def test_agent_plans_a_followup_for_himself_for_a_future_date(self):
+        due = str(date.today() + timedelta(days=2))
+        r = client_for(self.agent).post(
+            self.URL, {"lead": str(self.lead.id), "reason": "Rappeler vendredi", "due_date": due}, format="json"
+        )
+        self.assertEqual(r.status_code, 201)
+        task = FollowUpTask.objects.get()
+        self.assertEqual((task.assigned_to, task.reason, str(task.due_date)), (self.agent, "Rappeler vendredi", due))
+        self.assertEqual(len(client_for(self.agent).get(self.URL).data["results"]), 1)
+
+    def test_default_date_is_today_and_past_dates_are_refused(self):
+        r = client_for(self.agent).post(self.URL, {"lead": str(self.lead.id), "reason": "Aujourd'hui"}, format="json")
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(FollowUpTask.objects.get().due_date, date.today())
+        past = client_for(self.agent).post(
+            self.URL,
+            {"lead": str(self.lead.id), "reason": "x", "due_date": str(date.today() - timedelta(days=1))},
+            format="json",
+        )
+        self.assertEqual(past.status_code, 400)
+
+    def test_admin_plans_for_the_prospects_agent_and_buyers_are_refused(self):
+        client_for(self.admin).post(self.URL, {"lead": str(self.lead.id), "reason": "Suivi"}, format="json")
+        self.assertEqual(FollowUpTask.objects.get().assigned_to, self.agent)
+        self.assertEqual(
+            client_for(make_user("buyer@test.ci"))
+            .post(self.URL, {"lead": str(self.lead.id), "reason": "x"}, format="json")
+            .status_code,
+            403,
+        )
+        self.assertEqual(
+            client_for(self.agent)
+            .post(self.URL, {"lead": "00000000-0000-0000-0000-000000000000", "reason": "x"}, format="json")
+            .status_code,
+            404,
+        )

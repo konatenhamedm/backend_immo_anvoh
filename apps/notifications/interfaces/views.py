@@ -1,14 +1,20 @@
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.crm.infrastructure.models import Lead
 from apps.notifications.infrastructure.models import FollowUpStatus, FollowUpTask, Notification
 from apps.users.interfaces.permissions import IsStaffOrAgent, is_admin
 
-from .serializers import FollowUpTaskSerializer, NotificationCountSerializer, NotificationSerializer
+from .serializers import (
+    FollowUpCreateSerializer,
+    FollowUpTaskSerializer,
+    NotificationCountSerializer,
+    NotificationSerializer,
+)
 
 TAG = ["Notifications"]
 
@@ -60,14 +66,35 @@ class NotificationReadAllView(APIView):
         return Response({"unread": 0})
 
 
-@extend_schema(tags=TAG, summary="Tâches de relance (équipe) : les miennes, ou toutes pour un administrateur")
-class FollowUpListView(generics.ListAPIView):
+@extend_schema(tags=TAG)
+class FollowUpListView(generics.ListCreateAPIView):
     permission_classes = [IsStaffOrAgent]
     serializer_class = FollowUpTaskSerializer
 
     def get_queryset(self):
         qs = FollowUpTask.objects.select_related("lead", "assigned_to").filter(status=FollowUpStatus.OUVERTE)
         return qs if is_admin(self.request.user) else qs.filter(assigned_to=self.request.user)
+
+    @extend_schema(summary="Tâches de relance (équipe) : les miennes, ou toutes pour un administrateur")
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="Planifier une relance sur un prospect",
+        request=FollowUpCreateSerializer,
+        responses={201: FollowUpTaskSerializer},
+    )
+    def post(self, request, *args, **kwargs):
+        s = FollowUpCreateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        d = s.validated_data
+        lead = get_object_or_404(Lead, id=d["lead"])
+        # Le conseiller qui planifie s'en charge ; un administrateur planifie pour le conseiller du prospect (sinon pour lui).
+        owner = lead.assigned_agent if (is_admin(request.user) and lead.assigned_agent_id) else request.user
+        task = FollowUpTask.objects.create(
+            lead=lead, assigned_to=owner, reason=d["reason"], due_date=d.get("due_date") or timezone.localdate()
+        )
+        return Response(FollowUpTaskSerializer(task).data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema(
