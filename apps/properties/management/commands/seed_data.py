@@ -846,6 +846,13 @@ class Command(BaseCommand):
                     certified_at=timezone.now() - timedelta(days=20) if certified else None,
                 ),
             )
+            if certified:
+                # submitted_at est posé automatiquement à « maintenant » (auto_now_add) : on le recule de 5 à 10 jours
+                # avant la certification, sinon le dossier serait certifié AVANT d'avoir été déposé (délai négatif).
+                delay_days = 5 + (len(ref) + int(ref[-3:])) % 6
+                AccreditationFile.objects.filter(pk=file.pk).update(
+                    submitted_at=file.certified_at - timedelta(days=delay_days)
+                )
             docs = (
                 list(DocumentType)
                 if certified

@@ -153,7 +153,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "120/min",
         "user": "600/min",
-        "auth": "20/min",  # connexion, inscription, changement de mot de passe
+        "auth": os.getenv("AUTH_THROTTLE_RATE", "20/min"),  # connexion, inscription, changement de mot de passe
         "analytics": "240/min",  # envoi des événements de mesure par le navigateur (lots de 20 au plus)
         "public_forms": "10/min",  # formulaires publics (contact, WhatsApp, visite, « Trouver mon bien »)
     },
@@ -226,6 +226,7 @@ EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND",
     "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend",
 )
+EMAIL_FILE_PATH = os.getenv("EMAIL_FILE_PATH", "")  # avec EMAIL_BACKEND=…filebased.EmailBackend (tests de bout en bout)
 EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
