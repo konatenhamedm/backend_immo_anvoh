@@ -21,6 +21,8 @@ from apps.properties.interfaces.serializers import PropertyCardSerializer, favor
 from apps.users.interfaces.throttling import ScopedThrottleMixin
 
 from ..serializers import (
+    DiasporaContactInputSerializer,
+    DiasporaContactResponseSerializer,
     FindMyPropertyInputSerializer,
     FindMyPropertyResponseSerializer,
     PropertyInquiryInputSerializer,
@@ -256,5 +258,43 @@ class ScheduleVisitView(ScopedThrottleMixin, APIView):
                 "visit_id": visit.id,
                 "lead_id": lead.id,
             },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+@extend_schema(
+    tags=["CRM & Écrans"],
+    summary="Écran 17 : « Parler à un conseiller diaspora »",
+    description="Crée ou complète un prospect marqué diaspora, avec la source « Espace Diaspora ».",
+    request=DiasporaContactInputSerializer,
+    responses={201: DiasporaContactResponseSerializer},
+)
+class DiasporaContactView(ScopedThrottleMixin, APIView):
+    throttle_scope = "public_forms"
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = DiasporaContactInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        lead = find_or_create_lead(
+            phone=data["phone_number"],
+            user=_user(request),
+            full_name=data["full_name"],
+            email=data.get("email", ""),
+            source=LeadSource.ESPACE_DIASPORA,
+            extra={"country_of_residence": data["country_of_residence"], "is_diaspora": True},
+        )
+        services = ", ".join(data.get("services") or []) or "non précisés"
+        CRMInteraction.objects.create(
+            lead=lead,
+            interaction_type="DIASPORA_REQUEST",
+            details=f"Demande conseiller diaspora ({data['country_of_residence']}). Services : {services}. "
+            f"{data.get('message', '')}".strip(),
+        )
+        rescore(lead)
+        lead.save()
+        return Response(
+            {"message": "Un conseiller diaspora vous recontacte rapidement.", "lead_id": lead.id},
             status=status.HTTP_201_CREATED,
         )

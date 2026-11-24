@@ -21,12 +21,14 @@ from .views import (
     VisitRequestDetailAdminView,
     VisitRequestListAdminView,
     WhatsAppClickTrackView,
+    DiasporaContactView,
 )
 
 urlpatterns = [
     # Parcours client (public ou connecté)
     path("inquiries/", PropertyInquiryView.as_view(), name="property-inquiry"),
     path("whatsapp-click/", WhatsAppClickTrackView.as_view(), name="whatsapp-click-track"),
+    path("diaspora-contact/", DiasporaContactView.as_view(), name="diaspora-contact"),
     path("find-my-property/", FindMyPropertyView.as_view(), name="find-my-property"),
     path("visits/schedule/", ScheduleVisitView.as_view(), name="schedule-visit"),
     path("my-requests/", MyRequestsView.as_view(), name="my-requests"),

@@ -76,3 +76,38 @@ class GlobalSearchTests(TestCase):
                 client_for(make_user(f"{role}@test.ci", role)).get(self.URL, {"q": "zéph"}).status_code, 403
             )
         self.assertEqual(APIClient().get(self.URL, {"q": "zéph"}).status_code, 401)
+
+
+class DiasporaContactTests(TestCase):
+    """Écran 17 : le formulaire diaspora crée un prospect marqué diaspora, avec la bonne source."""
+
+    URL = "/api/v1/crm/diaspora-contact/"
+    PAYLOAD = {
+        "full_name": "Aïcha Koné",
+        "phone_number": "+33 6 12 34 56 78",
+        "country_of_residence": "France",
+        "services": ["Visite vidéo", "Simulation"],
+        "message": "Je souhaite acheter un terrain.",
+    }
+
+    def test_creates_diaspora_lead_with_source(self):
+        r = APIClient().post(self.URL, self.PAYLOAD, format="json")
+        self.assertEqual(r.status_code, 201)
+        lead = Lead.objects.get(id=r.data["lead_id"])
+        self.assertEqual(lead.source, "ESPACE_DIASPORA")
+        self.assertTrue(lead.is_diaspora)
+        self.assertEqual(lead.country_of_residence, "France")
+        self.assertEqual(lead.phone_number, "+33612345678")
+        interaction = lead.interactions.get(interaction_type="DIASPORA_REQUEST")
+        self.assertIn("Visite vidéo", interaction.details)
+
+    def test_same_phone_completes_existing_lead(self):
+        APIClient().post(self.URL, self.PAYLOAD, format="json")
+        APIClient().post(self.URL, {**self.PAYLOAD, "services": []}, format="json")
+        self.assertEqual(Lead.objects.filter(phone_number="+33612345678").count(), 1)
+
+    def test_rejects_unknown_service_and_missing_country(self):
+        bad = APIClient().post(self.URL, {**self.PAYLOAD, "services": ["Magie"]}, format="json")
+        self.assertEqual(bad.status_code, 400)
+        no_country = {k: v for k, v in self.PAYLOAD.items() if k != "country_of_residence"}
+        self.assertEqual(APIClient().post(self.URL, no_country, format="json").status_code, 400)

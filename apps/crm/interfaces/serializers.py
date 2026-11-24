@@ -42,6 +42,34 @@ class WhatsAppClickTrackSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
 
 
+DIASPORA_SERVICES = [
+    "Visite vidéo",
+    "Visioconférence",
+    "Envoi de documents",
+    "Simulation",
+    "Accompagnement personnalisé",
+    "Suivi du projet",
+]
+
+
+class DiasporaContactInputSerializer(serializers.Serializer):
+    """Écran 17 : « Parler à un conseiller diaspora » (résident à l'étranger)."""
+
+    full_name = serializers.CharField(max_length=200)
+    phone_number = serializers.CharField(max_length=30, help_text="Téléphone / WhatsApp, avec l'indicatif du pays")
+    email = serializers.EmailField(required=False, allow_blank=True)
+    country_of_residence = serializers.CharField(max_length=100)
+    services = serializers.ListField(
+        child=serializers.ChoiceField(choices=DIASPORA_SERVICES), required=False, allow_empty=True
+    )
+    message = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+
+
+class DiasporaContactResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    lead_id = serializers.UUIDField()
+
+
 class WhatsAppClickTrackResponseSerializer(serializers.Serializer):
     status = serializers.CharField()
     lead_id = serializers.UUIDField(allow_null=True)
