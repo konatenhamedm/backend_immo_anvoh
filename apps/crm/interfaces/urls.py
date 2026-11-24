@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     AdminDashboardView,
+    AdvisorPerformanceView,
     DiasporaContactView,
     FindMyPropertyView,
     GlobalSearchView,
@@ -41,6 +42,7 @@ urlpatterns = [
     # Back-office
     path("admin/search/", GlobalSearchView.as_view(), name="admin-search"),
     path("admin/dashboard/", AdminDashboardView.as_view(), name="admin-dashboard"),
+    path("admin/advisors/", AdvisorPerformanceView.as_view(), name="admin-advisors"),
     path("pipeline/kanban/", PipelineKanbanView.as_view(), name="pipeline-kanban"),
     path("leads/", LeadCreateAdminView.as_view(), name="admin-lead-create"),
     path("leads/<uuid:id>/", LeadDetailAdminView.as_view(), name="admin-lead-detail"),

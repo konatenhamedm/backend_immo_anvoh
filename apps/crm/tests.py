@@ -111,3 +111,31 @@ class DiasporaContactTests(TestCase):
         self.assertEqual(bad.status_code, 400)
         no_country = {k: v for k, v in self.PAYLOAD.items() if k != "country_of_residence"}
         self.assertEqual(APIClient().post(self.URL, no_country, format="json").status_code, 400)
+
+
+class AdvisorPerformanceTests(TestCase):
+    URL = "/api/v1/crm/admin/advisors/"
+
+    def setUp(self):
+        from django.utils import timezone
+
+        self.admin = make_user("admin2@test.ci", UserRole.ADMIN)
+        self.agent = make_user("agent2@test.ci", UserRole.AGENT, first="Aminata")
+        for i, stage in enumerate(["NOUVEAU", "VENTE", "PERDU"]):
+            Lead.objects.create(
+                full_name=f"P{i}",
+                phone_number=f"0700000{i}00",
+                stage=stage,
+                budget=Decimal("1000"),
+                assigned_agent=self.agent,
+                converted_at=timezone.now() if stage == "VENTE" else None,
+            )
+
+    def test_reserved_to_admin(self):
+        assert client_for(self.agent).get(self.URL).status_code == 403
+
+    def test_counts_per_advisor(self):
+        rows = client_for(self.admin).get(self.URL).json()
+        mine = next(r for r in rows if r["email"] == "agent2@test.ci")
+        assert (mine["leads_total"], mine["leads_active"], mine["sales"], mine["lost"]) == (3, 1, 1, 1)
+        assert mine["conversion_rate"] == 50.0

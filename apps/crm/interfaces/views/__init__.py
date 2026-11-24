@@ -1,5 +1,6 @@
 """Vues de `crm`, réparties par public. Les `urls.py` importent toujours `from .views import …`."""
 
+from .admin_advisors import AdvisorPerformanceView
 from .admin_dashboard import AdminDashboardView, GlobalSearchView
 from .admin_leads import LeadCreateAdminView, LeadDetailAdminView, LeadNoteView, PipelineKanbanView
 from .admin_requests import (
@@ -19,6 +20,7 @@ from .public_forms import (
 )
 
 __all__ = [
+    "AdvisorPerformanceView",
     "PropertyInquiryView",
     "WhatsAppClickTrackView",
     "DiasporaContactView",
