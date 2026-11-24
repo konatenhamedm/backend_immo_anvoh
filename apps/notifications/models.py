@@ -1,0 +1,10 @@
+"""
+Ré-exporte les modèles de `infrastructure/models.py`, comme les autres modules (crm, users, properties, messaging).
+
+Ce fichier est nécessaire : Django ne considère qu'une application « a des modèles » (`models_module`) si elle a un
+`models.py`. Sans lui, `dumpdata` ignore silencieusement les tables de ce module (donc export_demo_data aussi).
+"""
+
+from .infrastructure.models import FollowUpStatus, FollowUpTask, Notification
+
+__all__ = ["FollowUpStatus", "FollowUpTask", "Notification"]

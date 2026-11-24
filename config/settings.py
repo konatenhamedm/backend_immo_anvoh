@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "apps.messaging",
     "apps.investments",
     "apps.rentals",
+    "apps.notifications",
 ]
 
 MIDDLEWARE = [
@@ -212,3 +213,22 @@ if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = "DENY"
     REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = ["rest_framework.renderers.JSONRenderer"]
+
+
+# --- Notifications (e-mail) et relances -------------------------------------------------------------------------------
+# En développement, les e-mails s'affichent dans la console du serveur. En production : EMAIL_HOST, EMAIL_HOST_USER…
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
+EMAIL_TIMEOUT = 10  # secondes : un serveur de messagerie lent ne doit pas bloquer une requête
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "THIEBBRO IMMO <no-reply@thiebbro.ci>")
+# Adresse publique du site, utilisée pour les liens dans les e-mails.
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3100")
+# Prospect sans activité depuis N jours → tâche de relance (commande `create_followups`, à planifier chaque jour).
+FOLLOWUP_AFTER_DAYS = int(os.getenv("FOLLOWUP_AFTER_DAYS", "3"))

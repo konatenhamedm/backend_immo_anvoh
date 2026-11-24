@@ -137,9 +137,33 @@ def find_or_create_lead(
     for key, value in (extra or {}).items():
         if value not in (None, ""):
             setattr(lead, key, value)  # setattr(obj, "budget", 5) équivaut à obj.budget = 5 (nom de champ dynamique)
+    assign_agent(lead)  # sans effet si le prospect a déjà un conseiller (celui du bien, ou choisi par l'équipe)
     # ENREGISTRE : INSERT si c'est un nouveau prospect, UPDATE de toutes les colonnes sinon.
     lead.save()
     return lead
+
+
+def assign_agent(lead: Lead) -> None:
+    """
+    Attribue un conseiller à un prospect qui n'en a pas (spécification §10 : « attribue un conseiller »).
+
+    Choisit le conseiller actif qui a le MOINS de prospects ouverts (répartition équitable). N'écrit rien si le
+    prospect a déjà un conseiller ou s'il n'existe aucun conseiller actif. N'enregistre pas : l'appelant fait lead.save().
+    """
+    if lead.assigned_agent_id is not None:
+        return
+    from django.db.models import Count, Q
+
+    from apps.users.infrastructure.models import User, UserRole
+
+    agent = (
+        User.objects.filter(role=UserRole.AGENT, is_active=True)
+        .annotate(open_leads=Count("assigned_crm_leads", filter=~Q(assigned_crm_leads__stage__in=["VENTE", "PERDU"])))
+        .order_by("open_leads", "date_joined")
+        .first()
+    )
+    if agent is not None:
+        lead.assigned_agent = agent
 
 
 def advance_stage(lead: Lead, target: str) -> None:

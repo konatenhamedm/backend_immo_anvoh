@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -16,6 +17,8 @@ from apps.crm.infrastructure.models import (
     VisitRequest,
     VisitRequestStatus,
 )
+from apps.notifications.application.service import notify_lead_event
+from apps.notifications.domain import kinds
 from apps.properties.infrastructure.models import Property, PropertyStatus
 from apps.properties.interfaces.serializers import PropertyCardSerializer, favorite_ids_for
 from apps.users.interfaces.throttling import ScopedThrottleMixin
@@ -83,6 +86,14 @@ class PropertyInquiryView(ScopedThrottleMixin, APIView):
         )
         rescore(lead)
         lead.save()
+        notify_lead_event(
+            lead,
+            kinds.LEAD_NEW,
+            f"Nouvelle demande d'information : {lead.full_name}",
+            f"{prop.reference} — {prop.title}. Objectif : {data['objective']}. Téléphone : {lead.phone_number}.",
+            dedupe=f"inquiry:{inquiry.pk}",
+            prop=prop,
+        )
         return Response(
             {
                 "message": "Votre demande d'informations a bien été transmise à un conseiller.",
@@ -163,6 +174,21 @@ class FindMyPropertyView(ScopedThrottleMixin, APIView):
         advance_stage(lead, PipelineStage.QUALIFIE)
         rescore(lead)
         lead.save()
+        notify_lead_event(
+            lead,
+            kinds.LEAD_NEW,
+            f"Nouveau prospect : {lead.full_name} (Trouver mon bien)",
+            f"{lead.objective} · {lead.property_type} · {lead.preferred_zone} · délai {lead.timeframe}. Téléphone : {lead.phone_number}.",
+            dedupe=f"findmine:{lead.pk}:{lead.score}",
+        )
+        if lead.temperature in ("CHAUD", "TRES_CHAUD"):
+            notify_lead_event(
+                lead,
+                kinds.LEAD_QUALIFIED,
+                f"Nouveau prospect qualifié : {lead.full_name}",
+                f"Score {lead.score}/100 ({lead.get_temperature_display()}). Téléphone : {lead.phone_number}.",
+                dedupe=f"qualified:{lead.pk}",
+            )
         CRMInteraction.objects.create(
             lead=lead,
             interaction_type="QUESTIONNAIRE_7_STEPS",
@@ -247,6 +273,15 @@ class ScheduleVisitView(ScopedThrottleMixin, APIView):
         advance_stage(lead, PipelineStage.RDV)
         rescore(lead)
         lead.save()
+        notify_lead_event(
+            lead,
+            kinds.VISIT_REQUESTED,
+            f"Demande de visite : {lead.full_name}",
+            f"{prop.reference} — {prop.title}, le {data['scheduled_date']:%d/%m/%Y} à {data['scheduled_time']:%H:%M} "
+            f"({visit.get_visit_type_display()}). Téléphone : {lead.phone_number}.",
+            dedupe=f"visit:{visit.pk}",
+            prop=prop,
+        )
         CRMInteraction.objects.create(
             lead=lead,
             interaction_type="VISIT_SCHEDULED",
@@ -294,6 +329,13 @@ class DiasporaContactView(ScopedThrottleMixin, APIView):
         )
         rescore(lead)
         lead.save()
+        notify_lead_event(
+            lead,
+            kinds.LEAD_NEW,
+            f"Nouveau prospect diaspora : {lead.full_name} ({data['country_of_residence']})",
+            f"Services : {services}. Téléphone / WhatsApp : {lead.phone_number}.",
+            dedupe=f"diaspora:{lead.pk}:{timezone.localdate()}",
+        )
         return Response(
             {"message": "Un conseiller diaspora vous recontacte rapidement.", "lead_id": lead.id},
             status=status.HTTP_201_CREATED,

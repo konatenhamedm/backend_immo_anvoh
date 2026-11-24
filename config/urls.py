@@ -20,6 +20,7 @@ urlpatterns = [
     path("api/v1/messaging/", include("apps.messaging.interfaces.urls")),
     path("api/v1/investments/", include("apps.investments.interfaces.urls")),
     path("api/v1/rentals/", include("apps.rentals.interfaces.urls")),
+    path("api/v1/notifications/", include("apps.notifications.interfaces.urls")),
 ]
 
 # Servir les images uploadées en développement local

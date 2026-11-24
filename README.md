@@ -90,6 +90,25 @@ Règle : découper un module dès qu'il dépasse ~250 lignes ou 3 publics.
 | `rentals` | Gestion locative : baux, loyers encaissés, reversements aux propriétaires | `/api/v1/rentals/` |
 | `messaging` | Conversations et messages, compteur de non-lus | `/api/v1/messaging/` |
 | `simulators` | Rentabilité et capacité d'emprunt (publics) | `/api/v1/simulators/` |
+| `notifications` | Notifications (application + e-mail), attribution d'un conseiller, tâches de relance | `/api/v1/notifications/` |
+
+### Notifications et relances
+
+Le module `notifications` prévient **l'équipe** (conseiller du prospect, sinon du bien, sinon administrateurs) d'un nouveau prospect, d'une
+demande d'information ou de visite, d'un prospect qualifié (score ≥ 70), d'une relance à faire ; et **le client** d'un nouveau bien
+correspondant à une alerte de recherche, d'une baisse de prix d'un favori, d'une visite confirmée. Chaque notification est visible dans
+l'application (`GET /api/v1/notifications/`) et envoyée par e-mail ; l'e-mail n'est jamais bloquant (une panne SMTP n'empêche pas la demande).
+Les préférences du profil (`notifications_enabled`, `notification_preferences`) sont respectées pour les notifications client.
+Les prospects sans conseiller en reçoivent un automatiquement (celui qui a le moins de prospects ouverts).
+
+- **E-mail** : en développement, les messages s'affichent dans la console du serveur. En production, renseigner `EMAIL_HOST`, `EMAIL_HOST_USER`,
+  `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` et `FRONTEND_URL` (voir `.env.example`).
+- **Relances** : planifier **chaque jour** `python manage.py create_followups` (cron). Il crée une tâche pour chaque prospect sans activité depuis
+  `FOLLOWUP_AFTER_DAYS` jours (3 par défaut, ou `--days N`) et prévient son conseiller. `--dry-run` affiche sans écrire.
+  Liste et clôture : `GET /api/v1/notifications/followups/`, `POST …/followups/<id>/done/`.
+- **Aucun envoi** pendant `seed_data`, `load_demo_data`, `loaddata`… (pas de messages fictifs en masse).
+- Autres canaux (SMS, WhatsApp, push Firebase) : ajouter une fonction à `CHANNELS` dans `apps/notifications/application/service.py`.
+- Pas encore : résumés quotidien et hebdomadaire des alertes (seules les alertes « immédiates » sont envoyées).
 
 ### Convention d'URL
 
