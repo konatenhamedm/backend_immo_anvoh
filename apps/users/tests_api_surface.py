@@ -33,6 +33,7 @@ PUBLIC_OPERATIONS = {
     ("get", "properties/<uuid:id>/"),
     ("get", "properties/invest/"),
     ("get", "properties/projects/"),
+    ("get", "properties/projects/slug/<slug:slug>/"),
     ("get", "properties/projects/<uuid:id>/"),
     ("get", "properties/projects/<uuid:project_id>/lots/"),
     ("get", "properties/lots/<uuid:id>/"),
@@ -46,6 +47,7 @@ PUBLIC_OPERATIONS = {
     ("post", "crm/inquiries/"),
     ("post", "crm/whatsapp-click/"),
     ("post", "crm/find-my-property/"),
+    ("post", "crm/diaspora-contact/"),
     ("post", "crm/visits/schedule/"),
 }
 
@@ -183,7 +185,7 @@ class ThrottlingTests(TestCase):
         self.assertEqual(set(codes[20:]), {429})
 
     def test_public_forms_are_limited(self):
-        for path in ("crm/inquiries/", "crm/whatsapp-click/", "crm/find-my-property/", "crm/visits/schedule/"):
+        for path in ("crm/inquiries/", "crm/whatsapp-click/", "crm/find-my-property/", "crm/diaspora-contact/", "crm/visits/schedule/"):
             cache.clear()
             codes = self._hammer(path, {}, 12)
             self.assertNotIn(429, codes[:10], path)
