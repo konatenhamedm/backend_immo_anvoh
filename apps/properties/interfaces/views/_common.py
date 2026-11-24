@@ -1,6 +1,6 @@
 """Requêtes et fonctions partagées par les vues du module `properties` (aucune vue ici)."""
 
-from django.db.models import Count, Q
+from django.db.models import Case, Count, IntegerField, Q, Value, When
 from rest_framework.exceptions import NotFound
 
 from apps.properties.infrastructure.models import (
@@ -69,6 +69,7 @@ def apply_search_filters(qs, params):
         ("min_surface", "surface_sqm__gte"),
         ("rooms_count", "rooms_count"),
         ("min_bedrooms", "bedrooms_count__gte"),
+        ("status", "status"),  # disponibilité : DISPONIBLE | OPTION | RESERVE (déjà borné par public_qs)
     ):
         if params.get(param):
             qs = qs.filter(**{lookup: params[param]})
@@ -77,6 +78,19 @@ def apply_search_filters(qs, params):
     if params.get("has_tour") in ("1", "true"):
         qs = qs.exclude(virtual_tour_url__isnull=True).exclude(virtual_tour_url="")
     ordering = params.get("ordering", "-created_at")
+    if ordering == "relevance":
+        # Pertinence : correspondance du texte cherché (titre > lieu > reste), puis mise en avant et score.
+        if q:
+            qs = qs.annotate(
+                _rank=Case(
+                    When(title__icontains=q, then=Value(3)),
+                    When(Q(commune__icontains=q) | Q(neighborhood__icontains=q), then=Value(2)),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                )
+            )
+            return qs.order_by("-_rank", "-is_featured", "-investment_score", "-created_at")
+        return qs.order_by("-is_featured", "-investment_score", "-created_at")
     allowed = [
         "price",
         "-price",

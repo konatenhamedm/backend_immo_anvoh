@@ -12,15 +12,36 @@ from apps.users.interfaces.permissions import IsStaffOrAgent, ReadOnlyOr
 
 from ..serializers import (
     DevelopmentProjectSerializer,
+    DevelopmentProjectSummarySerializer,
     ProjectLotSerializer,
 )
+from ._common import project_summaries
 
 
 @extend_schema(tags=["Programmes Neufs"])
 class DevelopmentProjectListView(generics.ListCreateAPIView):
+    """Liste des programmes. `?summary=1` : version allégée (décomptes de lots, sans la liste des lots) pour le site."""
+
+    permission_classes = [ReadOnlyOr(IsStaffOrAgent)]
+
+    def _summary(self) -> bool:
+        return self.request.method == "GET" and self.request.query_params.get("summary") in ("1", "true")
+
+    def get_queryset(self):
+        if self._summary():
+            return project_summaries().order_by("-is_featured", "-created_at")
+        return DevelopmentProject.objects.prefetch_related("lots")
+
+    def get_serializer_class(self):
+        return DevelopmentProjectSummarySerializer if self._summary() else DevelopmentProjectSerializer
+
+
+@extend_schema(tags=["Programmes Neufs"], summary="Fiche d'un programme par son slug (lecture seule, avec ses lots)")
+class DevelopmentProjectBySlugView(generics.RetrieveAPIView):
     permission_classes = [ReadOnlyOr(IsStaffOrAgent)]
     queryset = DevelopmentProject.objects.prefetch_related("lots")
     serializer_class = DevelopmentProjectSerializer
+    lookup_field = "slug"
 
 
 @extend_schema(tags=["Programmes Neufs"])
