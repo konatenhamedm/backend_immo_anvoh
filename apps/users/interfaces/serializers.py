@@ -190,3 +190,16 @@ class LoginCodeVerifySerializer(serializers.Serializer):
 
 class GoogleLoginSerializer(serializers.Serializer):
     credential = serializers.CharField(help_text="Jeton d'identité (ID token) fourni par Google Identity Services.")
+
+
+class CompleteProfileSerializer(serializers.Serializer):
+    """Fin d'inscription (compte créé avec Google) : profil, téléphone et pays de résidence."""
+
+    role = serializers.CharField(required=False, help_text="PARTICULIER, INVESTISSEUR ou PROPRIETAIRE")
+    phone_number = serializers.CharField(min_length=6, max_length=30)
+    country_of_residence = serializers.CharField(max_length=100, required=False)
+
+    def validate_role(self, value):
+        if value not in [r.value for r in SELF_SERVICE_ROLES]:
+            raise serializers.ValidationError("Profil non autorisé.")
+        return value

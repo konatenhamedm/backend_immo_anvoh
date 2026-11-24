@@ -8,12 +8,13 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.users.application import account_access, google_login
-from apps.users.infrastructure.models import IdentityStatus, User
+from apps.users.infrastructure.models import SELF_SERVICE_ROLES, IdentityStatus, User
 
 from .permissions import IsAdminRole
 from .serializers import (
     AdminUserSerializer,
     AuthTokenResponseSerializer,
+    CompleteProfileSerializer,
     EmailOnlySerializer,
     GoogleLoginSerializer,
     IdentityDocumentSerializer,
@@ -256,3 +257,32 @@ class GoogleLoginView(ScopedThrottleMixin, APIView):
             code = status.HTTP_501_NOT_IMPLEMENTED if "activée" in str(e) else status.HTTP_400_BAD_REQUEST
             return Response({"detail": str(e)}, status=code)
         return Response(_tokens_for(user))
+
+
+@extend_schema(
+    tags=["Authentification & Profil"],
+    request=CompleteProfileSerializer,
+    responses={200: UserProfileSerializer},
+    summary="Compléter son profil après une inscription Google (profil, téléphone, pays)",
+)
+class CompleteProfileView(APIView):
+    """Le profil ne peut changer qu'entre profils grand public : l'équipe et les notaires ne sont jamais modifiés ici."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        s = CompleteProfileSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data, user = s.validated_data, request.user
+        if "role" in data:
+            if user.role not in SELF_SERVICE_ROLES:
+                return Response(
+                    {"detail": "Le profil de ce compte ne peut pas être modifié ici."}, status=status.HTTP_403_FORBIDDEN
+                )
+            user.role = data["role"]
+        user.phone_number = data["phone_number"].strip()
+        if "country_of_residence" in data:
+            user.country_of_residence = data["country_of_residence"].strip()
+            user.is_diaspora = user.country_of_residence.lower() not in ("côte d'ivoire", "cote d'ivoire", "ci")
+        user.save()
+        return Response(UserProfileSerializer(user).data)

@@ -137,3 +137,46 @@ class GoogleLoginTests(TestCase):
         ):
             r = self.c.post(self.URL, {"credential": "ok"}, format="json")
         assert r.status_code == 200 and r.json()["user"]["role"] == "ADMIN"
+
+
+class CompleteProfileTests(TestCase):
+    URL = "/api/v1/auth/profile/complete/"
+
+    def user(self, role):
+        return User.objects.create_user(
+            email=f"{role.lower()}@test.ci",
+            password="Un-Mot2Passe-Solide",
+            first_name="A",
+            last_name="B",
+            phone_number="",
+            role=role,
+        )
+
+    def post(self, user, data):
+        c = APIClient()
+        c.force_authenticate(user)
+        return c.post(self.URL, data, format="json")
+
+    def test_google_user_completes_profile(self):
+        u = self.user(UserRole.PARTICULIER)
+        r = self.post(
+            u, {"role": "PROPRIETAIRE", "phone_number": "+33 6 12 34 56 78", "country_of_residence": "France"}
+        )
+        assert r.status_code == 200
+        u.refresh_from_db()
+        assert (u.role, u.phone_number, u.is_diaspora) == ("PROPRIETAIRE", "+33 6 12 34 56 78", True)
+
+    def test_phone_is_required(self):
+        assert self.post(self.user(UserRole.PARTICULIER), {"role": "INVESTISSEUR"}).status_code == 400
+
+    def test_staff_cannot_change_role_here(self):
+        u = self.user(UserRole.ADMIN)
+        assert self.post(u, {"role": "PARTICULIER", "phone_number": "0700000000"}).status_code == 403
+        u.refresh_from_db()
+        assert u.role == UserRole.ADMIN
+
+    def test_cannot_become_staff(self):
+        assert (
+            self.post(self.user(UserRole.PARTICULIER), {"role": "ADMIN", "phone_number": "0700000000"}).status_code
+            == 400
+        )
