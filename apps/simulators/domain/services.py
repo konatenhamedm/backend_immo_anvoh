@@ -85,8 +85,11 @@ class FinancialCalculationDomainService:
         total_monthly_income = data.monthly_income + data.secondary_income
         max_allowed_debt = total_monthly_income * data.max_debt_ratio
 
-        # Mensualité disponible
-        available_monthly_payment = max(Decimal("0"), max_allowed_debt - data.monthly_existing_credits)
+        # Mensualité disponible : plafond d'endettement (33 %) moins les crédits en cours, sans jamais dépasser
+        # ce qui reste du revenu une fois payées les charges courantes et les crédits.
+        by_debt_ratio = max_allowed_debt - data.monthly_existing_credits
+        by_remaining_income = total_monthly_income - data.monthly_charges - data.monthly_existing_credits
+        available_monthly_payment = max(Decimal("0"), min(by_debt_ratio, by_remaining_income))
 
         # Capacité d'emprunt maximale correspondante
         max_borrowable = Decimal("0")

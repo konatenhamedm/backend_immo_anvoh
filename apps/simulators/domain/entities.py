@@ -37,6 +37,7 @@ class BorrowingCapacityInput:
     monthly_income: Decimal  # Salaire ou revenus principaux
     secondary_income: Decimal = Decimal("0")  # Revenus complémentaires
     monthly_existing_credits: Decimal = Decimal("0")  # Crédits en cours
+    monthly_charges: Decimal = Decimal("0")  # Charges courantes (loyer, famille…) : spec écran 11
     available_down_payment: Decimal = Decimal("0")  # Apport disponible
     loan_duration_years: int = 20  # Durée en années
     annual_interest_rate: Decimal = Decimal("7.5")  # Taux annuel standard bancaire CI (7.5%)

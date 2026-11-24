@@ -84,6 +84,13 @@ class BorrowingCapacityInputSerializer(serializers.Serializer):
         default=Decimal("0"),
         help_text="Total des mensualités de crédits en cours (FCFA)",
     )
+    monthly_charges = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0"),
+        default=Decimal("0"),
+        help_text="Charges mensuelles courantes (FCFA)",
+    )
     available_down_payment = serializers.DecimalField(
         max_digits=14,
         decimal_places=2,

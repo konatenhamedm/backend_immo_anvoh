@@ -54,6 +54,31 @@ class SimulatorDomainUnitTest(TestCase):
         self.assertGreater(result.max_borrowable_amount, Decimal("50000000"))
         self.assertEqual(result.total_purchasing_power, result.max_borrowable_amount + cap_input.available_down_payment)
 
+    def test_borrowing_capacity_with_charges_spec_example(self):
+        # Exemple de la spécification (écran 11) : 1 500 000 de revenu, 400 000 de charges, 200 000 de crédits.
+        base = dict(
+            monthly_income=Decimal("1500000"),
+            monthly_existing_credits=Decimal("200000"),
+            available_down_payment=Decimal("20000000"),
+            loan_duration_years=15,
+        )
+        result = FinancialCalculationDomainService.calculate_borrowing_capacity(
+            BorrowingCapacityInput(monthly_charges=Decimal("400000"), **base)
+        )
+        # 33 % de 1,5 M = 495 000, moins 200 000 de crédits = 295 000 ; les charges ne sont pas limitantes ici.
+        self.assertEqual(result.max_monthly_payment, Decimal("295000"))
+
+    def test_borrowing_capacity_capped_by_remaining_income(self):
+        # Charges très lourdes : il ne reste que 100 000 après charges et crédits, sous le plafond des 33 %.
+        result = FinancialCalculationDomainService.calculate_borrowing_capacity(
+            BorrowingCapacityInput(
+                monthly_income=Decimal("1500000"),
+                monthly_charges=Decimal("1200000"),
+                monthly_existing_credits=Decimal("200000"),
+            )
+        )
+        self.assertEqual(result.max_monthly_payment, Decimal("100000"))
+
 
 class SimulatorAPIIntegrationTest(TestCase):
     """
