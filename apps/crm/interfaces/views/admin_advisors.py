@@ -6,11 +6,13 @@ from django.contrib.auth import get_user_model
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
-from rest_framework import serializers
+from rest_framework import generics, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.crm.infrastructure.models import Lead, PipelineStage
+from apps.crm.domain.lead_service import rescore
+from apps.crm.infrastructure.models import CRMSettings, Lead, PipelineStage
+from apps.crm.interfaces.serializers import CRMSettingsSerializer
 from apps.notifications.infrastructure.models import FollowUpStatus, FollowUpTask
 from apps.users.infrastructure.models import UserRole
 from apps.users.interfaces.permissions import IsAdminRole
@@ -89,3 +91,34 @@ class AdvisorPerformanceView(APIView):
             )
         rows.sort(key=lambda r: (-r["sales"], -r["leads_active"]))
         return Response(rows)
+
+
+@extend_schema(tags=["Back-office CRM"], summary="Réglages commerciaux (score, seuils, relances)")
+class CRMSettingsView(generics.RetrieveUpdateAPIView):
+    """GET : réglages actuels. PATCH : modification (administrateur). Les scores existants ne changent qu'au recalcul."""
+
+    permission_classes = [IsAdminRole]
+    serializer_class = CRMSettingsSerializer
+
+    def get_object(self):
+        return CRMSettings.load()
+
+
+@extend_schema(
+    tags=["Back-office CRM"],
+    summary="Recalcule le score de tous les prospects avec les réglages actuels",
+    request=None,
+    responses={200: inline_serializer("RescoreResult", {"updated": serializers.IntegerField()})},
+)
+class RescoreAllLeadsView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def post(self, request):
+        n = 0
+        for lead in Lead.objects.all().iterator():
+            before = (lead.score, lead.temperature)
+            rescore(lead)
+            if (lead.score, lead.temperature) != before:
+                Lead.objects.filter(pk=lead.pk).update(score=lead.score, temperature=lead.temperature)
+                n += 1
+        return Response({"updated": n})

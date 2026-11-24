@@ -139,3 +139,32 @@ class AdvisorPerformanceTests(TestCase):
         mine = next(r for r in rows if r["email"] == "agent2@test.ci")
         assert (mine["leads_total"], mine["leads_active"], mine["sales"], mine["lost"]) == (3, 1, 1, 1)
         assert mine["conversion_rate"] == 50.0
+
+
+class CRMSettingsTests(TestCase):
+    URL = "/api/v1/crm/admin/settings/"
+
+    def setUp(self):
+        self.admin = make_user("admin3@test.ci", UserRole.ADMIN)
+        self.agent = make_user("agent3@test.ci", UserRole.AGENT)
+
+    def test_defaults_and_permissions(self):
+        assert client_for(self.agent).get(self.URL).status_code == 403
+        data = client_for(self.admin).get(self.URL).json()
+        assert data["weight_budget"] == 20 and data["threshold_chaud"] == 70 and data["followup_after_days"] == 3
+
+    def test_thresholds_must_increase(self):
+        r = client_for(self.admin).patch(self.URL, {"threshold_tiede": 80}, format="json")
+        assert r.status_code == 400
+
+    def test_new_weights_change_the_score_after_rescore(self):
+        lead = Lead.objects.create(full_name="X", phone_number="0700000555", budget=Decimal("1000"))
+        from apps.crm.domain.lead_service import rescore
+
+        rescore(lead)
+        before = lead.score
+        c = client_for(self.admin)
+        assert c.patch(self.URL, {"weight_budget": 50}, format="json").status_code == 200
+        assert c.post(self.URL + "rescore/").json()["updated"] >= 1
+        lead.refresh_from_db()
+        assert lead.score == before + 30

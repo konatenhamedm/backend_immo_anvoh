@@ -30,7 +30,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.crm.domain.scoring_service import LeadScoringDomainService
-from apps.crm.infrastructure.models import AcquisitionChannel, Lead, PipelineStage
+from apps.crm.infrastructure.models import AcquisitionChannel, CRMSettings, Lead, PipelineStage
 
 # Ordre du pipeline commercial, du début à la fin. « PERDU » n'y figure pas : c'est une sortie, pas une étape.
 # Sert à comparer deux étapes (STAGE_ORDER.index("RDV") > STAGE_ORDER.index("CONTACTE")) pour ne jamais reculer.
@@ -202,6 +202,22 @@ def advance_stage(lead: Lead, target: str) -> None:
         lead.stage = target
 
 
+def scoring_rules() -> dict:
+    """Pondérations et seuils choisis par l'administrateur (réglages commerciaux)."""
+    c = CRMSettings.load()
+    return {
+        "budget": c.weight_budget,
+        "down_payment": c.weight_down_payment,
+        "timeframe": c.weight_timeframe,
+        "property": c.weight_property,
+        "visit": c.weight_visit,
+        "interaction": c.weight_interaction,
+        "tiede": c.threshold_tiede,
+        "chaud": c.threshold_chaud,
+        "tres_chaud": c.threshold_tres_chaud,
+    }
+
+
 def rescore(lead: Lead) -> None:
     """
     Recalcule le SCORE (0–100) et la TEMPÉRATURE du prospect d'après ce que l'on sait de lui.
@@ -229,5 +245,6 @@ def rescore(lead: Lead) -> None:
         has_visit_request=lead.visits.exists(),
         has_recent_interaction=bool(lead.last_interaction_at and (timezone.now() - lead.last_interaction_at).days <= 30)
         or lead.pk is None,
+        rules=scoring_rules(),
     )
     lead.score, lead.temperature = score, temperature

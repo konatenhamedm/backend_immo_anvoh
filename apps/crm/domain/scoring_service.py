@@ -11,7 +11,20 @@ class LeadScoringDomainService:
     - Bien identifié : +15
     - Demande de visite : +15
     - Réponse / interaction récente : +10
+    Ces valeurs sont les défauts ; l'administrateur les modifie (CRMSettings) et `calculate_score(..., rules=)` les reçoit.
     """
+
+    DEFAULT_RULES = {
+        "budget": 20,
+        "down_payment": 20,
+        "timeframe": 20,
+        "property": 15,
+        "visit": 15,
+        "interaction": 10,
+        "tiede": 40,
+        "chaud": 70,
+        "tres_chaud": 90,
+    }
 
     @staticmethod
     def calculate_score(
@@ -21,30 +34,32 @@ class LeadScoringDomainService:
         has_identified_property: bool,
         has_visit_request: bool,
         has_recent_interaction: bool = True,
+        rules: dict | None = None,
     ) -> Tuple[int, str]:
+        r = {**LeadScoringDomainService.DEFAULT_RULES, **(rules or {})}
         score = 0
         if has_confirmed_budget:
-            score += 20
+            score += r["budget"]
         if has_confirmed_down_payment:
-            score += 20
+            score += r["down_payment"]
         if timeframe_under_3_months:
-            score += 20
+            score += r["timeframe"]
         if has_identified_property:
-            score += 15
+            score += r["property"]
         if has_visit_request:
-            score += 15
+            score += r["visit"]
         if has_recent_interaction:
-            score += 10
+            score += r["interaction"]
 
         # Plafond à 100
         score = min(score, 100)
 
         # Détermination de la température commerciale
-        if score >= 90:
+        if score >= r["tres_chaud"]:
             temperature = "TRES_CHAUD"  # 90-100 : Très chaud
-        elif score >= 70:
+        elif score >= r["chaud"]:
             temperature = "CHAUD"  # 70-89 : Chaud
-        elif score >= 40:
+        elif score >= r["tiede"]:
             temperature = "TIEDE"  # 40-69 : Tiède
         else:
             temperature = "FROID"  # 0-39 : Froid

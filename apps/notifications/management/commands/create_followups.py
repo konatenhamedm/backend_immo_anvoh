@@ -2,11 +2,10 @@
 
 from datetime import timedelta
 
-from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from apps.crm.infrastructure.models import Lead
+from apps.crm.infrastructure.models import CRMSettings, Lead
 from apps.notifications.application.service import notify
 from apps.notifications.domain import kinds
 from apps.notifications.infrastructure.models import FollowUpStatus, FollowUpTask
@@ -19,12 +18,15 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--days", type=int, default=None, help=f"Inactivité en jours (défaut : {settings.FOLLOWUP_AFTER_DAYS})"
+            "--days",
+            type=int,
+            default=None,
+            help="Inactivité en jours (défaut : réglage « Relance après » du back-office)",
         )
         parser.add_argument("--dry-run", action="store_true", help="Affiche ce qui serait créé, sans rien écrire")
 
     def handle(self, *args, days=None, dry_run=False, **options):
-        days = days if days is not None else settings.FOLLOWUP_AFTER_DAYS
+        days = days if days is not None else CRMSettings.load().followup_after_days
         limit = timezone.now() - timedelta(days=days)
         # Un prospect qui a déjà une relance ouverte n'en reçoit pas une deuxième.
         open_leads = FollowUpTask.objects.filter(status=FollowUpStatus.OUVERTE).values("lead_id")

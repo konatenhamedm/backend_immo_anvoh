@@ -7,6 +7,7 @@ from rest_framework import serializers
 from apps.crm.infrastructure.models import (
     AcquisitionChannel,
     CRMInteraction,
+    CRMSettings,
     Lead,
     LeadSource,
     PipelineStage,
@@ -352,3 +353,44 @@ class LeadCreateSerializer(serializers.Serializer):
     assign_to_me = serializers.BooleanField(default=False)
     acquisition_channel = serializers.ChoiceField(choices=AcquisitionChannel.choices, default=AcquisitionChannel.AUTRE)
     commercial_notes = serializers.CharField(required=False, allow_blank=True)
+
+
+class CRMSettingsSerializer(serializers.ModelSerializer):
+    """Réglages commerciaux (pondérations du score, seuils de température, délai de relance)."""
+
+    class Meta:
+        model = CRMSettings
+        fields = [
+            "weight_budget",
+            "weight_down_payment",
+            "weight_timeframe",
+            "weight_property",
+            "weight_visit",
+            "weight_interaction",
+            "threshold_tiede",
+            "threshold_chaud",
+            "threshold_tres_chaud",
+            "followup_after_days",
+            "updated_at",
+        ]
+        read_only_fields = ["updated_at"]
+
+    def validate(self, attrs):
+        get = lambda k: attrs.get(k, getattr(self.instance, k, None))  # noqa: E731
+        if not get("threshold_tiede") < get("threshold_chaud") < get("threshold_tres_chaud"):
+            raise serializers.ValidationError("Les seuils doivent être croissants : tiède < chaud < très chaud.")
+        if get("threshold_tres_chaud") > 100:
+            raise serializers.ValidationError("Un seuil ne peut pas dépasser 100.")
+        weights = [
+            "weight_budget",
+            "weight_down_payment",
+            "weight_timeframe",
+            "weight_property",
+            "weight_visit",
+            "weight_interaction",
+        ]
+        if any(get(w) > 100 for w in weights):
+            raise serializers.ValidationError("Une pondération ne peut pas dépasser 100 points.")
+        if get("followup_after_days") < 1:
+            raise serializers.ValidationError("Le délai de relance est d'au moins 1 jour.")
+        return attrs

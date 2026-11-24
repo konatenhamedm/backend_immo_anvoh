@@ -281,3 +281,38 @@ class SearchAlert(models.Model):
             and (not self.commune or self.commune.lower() in prop.commune.lower())
             and (self.max_budget is None or prop.price <= self.max_budget)
         )
+
+
+class CRMSettings(models.Model):
+    """
+    Réglages commerciaux modifiables par l'administrateur (une seule ligne, `pk=1`).
+    Les valeurs par défaut reproduisent les règles d'origine (Écran 27) ; `CRMSettings.load()` crée la ligne au besoin.
+    """
+
+    weight_budget = models.PositiveSmallIntegerField("Points : budget confirmé", default=20)
+    weight_down_payment = models.PositiveSmallIntegerField("Points : apport confirmé", default=20)
+    weight_timeframe = models.PositiveSmallIntegerField("Points : délai inférieur à 3 mois", default=20)
+    weight_property = models.PositiveSmallIntegerField("Points : bien identifié", default=15)
+    weight_visit = models.PositiveSmallIntegerField("Points : visite demandée", default=15)
+    weight_interaction = models.PositiveSmallIntegerField("Points : interaction récente", default=10)
+    threshold_tiede = models.PositiveSmallIntegerField("Seuil tiède", default=40)
+    threshold_chaud = models.PositiveSmallIntegerField("Seuil chaud", default=70)
+    threshold_tres_chaud = models.PositiveSmallIntegerField("Seuil très chaud", default=90)
+    followup_after_days = models.PositiveSmallIntegerField("Relance après (jours d'inactivité)", default=3)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Réglages commerciaux"
+        verbose_name_plural = "Réglages commerciaux"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls) -> "CRMSettings":
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Réglages commerciaux"

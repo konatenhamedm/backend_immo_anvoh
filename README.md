@@ -126,7 +126,7 @@ Les prospects sans conseiller en reçoivent un automatiquement (celui qui a le m
 - **E-mail** : en développement, les messages s'affichent dans la console du serveur. En production, renseigner `EMAIL_HOST`, `EMAIL_HOST_USER`,
   `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` et `FRONTEND_URL` (voir `.env.example`).
 - **Relances** : planifier **chaque jour** `python manage.py create_followups` (cron). Il crée une tâche pour chaque prospect sans activité depuis
-  `FOLLOWUP_AFTER_DAYS` jours (3 par défaut, ou `--days N`) et prévient son conseiller. `--dry-run` affiche sans écrire.
+  N jours (réglage « Relance après » du back-office, 3 par défaut ; ou `--days N`) et prévient son conseiller. `--dry-run` affiche sans écrire.
   Liste et clôture : `GET /api/v1/notifications/followups/`, `POST …/followups/<id>/done/`.
 - **Aucun envoi** pendant `seed_data`, `load_demo_data`, `loaddata`… (pas de messages fictifs en masse).
 - Autres canaux (SMS, WhatsApp, push Firebase) : ajouter une fonction à `CHANNELS` dans `apps/notifications/application/service.py`.
