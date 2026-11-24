@@ -371,6 +371,9 @@ class CRMSettingsSerializer(serializers.ModelSerializer):
             "threshold_chaud",
             "threshold_tres_chaud",
             "followup_after_days",
+            "notary_fees_percent",
+            "simulator_interest_rate",
+            "max_debt_percent",
             "updated_at",
         ]
         read_only_fields = ["updated_at"]
@@ -391,6 +394,12 @@ class CRMSettingsSerializer(serializers.ModelSerializer):
         ]
         if any(get(w) > 100 for w in weights):
             raise serializers.ValidationError("Une pondération ne peut pas dépasser 100 points.")
+        if not 0 <= get("notary_fees_percent") <= 20:
+            raise serializers.ValidationError("Les frais de notaire doivent être compris entre 0 et 20 %.")
+        if not 0.1 <= get("simulator_interest_rate") <= 30:
+            raise serializers.ValidationError("Le taux bancaire doit être compris entre 0,1 et 30 %.")
+        if not 10 <= get("max_debt_percent") <= 60:
+            raise serializers.ValidationError("Le taux d'endettement maximal doit être compris entre 10 et 60 %.")
         if get("followup_after_days") < 1:
             raise serializers.ValidationError("Le délai de relance est d'au moins 1 jour.")
         return attrs

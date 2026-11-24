@@ -3,12 +3,14 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.crm.infrastructure.models import CRMSettings
 from apps.simulators.application.use_cases import CalculateInvestmentYieldUseCase, EstimateBorrowingCapacityUseCase
 from apps.simulators.interfaces.serializers import (
     BorrowingCapacityInputSerializer,
     BorrowingCapacityOutputSerializer,
     InvestmentSimulationInputSerializer,
     InvestmentSimulationOutputSerializer,
+    SimulatorDefaultsSerializer,
 )
 
 
@@ -60,3 +62,24 @@ class BorrowingCapacitySimulationView(APIView):
 
         response_serializer = BorrowingCapacityOutputSerializer(result)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+
+class SimulatorDefaultsView(APIView):
+    """Hypothèses affichées par les simulateurs (réglées par l'administrateur dans Paramètres)."""
+
+    permission_classes = [permissions.AllowAny]
+
+    @extend_schema(
+        summary="Hypothèses des simulateurs (frais de notaire, taux, endettement)",
+        responses={200: SimulatorDefaultsSerializer},
+        tags=["Simulateurs Financiers"],
+    )
+    def get(self, request):
+        c = CRMSettings.load()
+        return Response(
+            {
+                "notary_fees_percent": c.notary_fees_percent,
+                "interest_rate": c.simulator_interest_rate,
+                "max_debt_percent": c.max_debt_percent,
+            }
+        )

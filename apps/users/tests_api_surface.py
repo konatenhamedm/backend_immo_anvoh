@@ -49,6 +49,7 @@ PUBLIC_OPERATIONS = {
     # Simulateurs
     ("post", "simulators/calculate-investment/"),
     ("post", "simulators/borrowing-capacity/"),
+    ("get", "simulators/defaults/"),
     # Formulaires de contact et de réservation (visiteurs non connectés)
     ("post", "crm/inquiries/"),
     ("post", "crm/whatsapp-click/"),

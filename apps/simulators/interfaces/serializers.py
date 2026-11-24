@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
+from apps.crm.infrastructure.models import CRMSettings
 from apps.simulators.domain.entities import BorrowingCapacityInput, InvestmentSimulationInput
 
 
@@ -19,8 +20,8 @@ class InvestmentSimulationInputSerializer(serializers.Serializer):
         decimal_places=2,
         min_value=Decimal("0.1"),
         max_value=Decimal("30.0"),
-        default=Decimal("7.5"),
-        help_text="Taux bancaire annuel en % (ex: 7.5)",
+        required=False,
+        help_text="Taux bancaire annuel en % (défaut : réglage du back-office)",
     )
     loan_duration_years = serializers.IntegerField(
         min_value=1, max_value=30, default=15, help_text="Durée du prêt en années (1 à 30)"
@@ -42,13 +43,17 @@ class InvestmentSimulationInputSerializer(serializers.Serializer):
         max_digits=5,
         decimal_places=4,
         min_value=Decimal("0"),
-        default=Decimal("0.08"),
-        help_text="Frais de notaire (ratio, ex: 0.08 pour 8%)",
+        required=False,
+        help_text="Frais de notaire (ratio, ex: 0.08 pour 8 %). Défaut : réglage du back-office.",
     )
 
     def to_domain(self) -> InvestmentSimulationInput:
         """Convertit le DTO validé en Value Object du Domaine."""
-        return InvestmentSimulationInput(**self.validated_data)
+        data = dict(self.validated_data)
+        settings = CRMSettings.load()
+        data.setdefault("annual_interest_rate", settings.simulator_interest_rate)
+        data.setdefault("notary_fees_rate", settings.notary_fees_percent / 100)
+        return InvestmentSimulationInput(**data)
 
 
 class InvestmentSimulationOutputSerializer(serializers.Serializer):
@@ -105,12 +110,16 @@ class BorrowingCapacityInputSerializer(serializers.Serializer):
         max_digits=5,
         decimal_places=2,
         min_value=Decimal("0.1"),
-        default=Decimal("7.5"),
-        help_text="Taux bancaire annuel (%)",
+        required=False,
+        help_text="Taux bancaire annuel (%). Défaut : réglage du back-office.",
     )
 
     def to_domain(self) -> BorrowingCapacityInput:
-        return BorrowingCapacityInput(**self.validated_data)
+        data = dict(self.validated_data)
+        settings = CRMSettings.load()
+        data.setdefault("annual_interest_rate", settings.simulator_interest_rate)
+        data["max_debt_ratio"] = settings.max_debt_percent / 100
+        return BorrowingCapacityInput(**data)
 
 
 class BorrowingCapacityOutputSerializer(serializers.Serializer):
@@ -119,3 +128,9 @@ class BorrowingCapacityOutputSerializer(serializers.Serializer):
     max_monthly_payment = serializers.DecimalField(max_digits=12, decimal_places=2)
     max_borrowable_amount = serializers.DecimalField(max_digits=14, decimal_places=2)
     total_purchasing_power = serializers.DecimalField(max_digits=14, decimal_places=2)
+
+
+class SimulatorDefaultsSerializer(serializers.Serializer):
+    notary_fees_percent = serializers.DecimalField(max_digits=5, decimal_places=2)
+    interest_rate = serializers.DecimalField(max_digits=5, decimal_places=2)
+    max_debt_percent = serializers.DecimalField(max_digits=5, decimal_places=2)

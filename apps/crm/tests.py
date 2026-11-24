@@ -168,3 +168,61 @@ class CRMSettingsTests(TestCase):
         assert c.post(self.URL + "rescore/").json()["updated"] >= 1
         lead.refresh_from_db()
         assert lead.score == before + 30
+
+
+class SimulatorSettingsTests(TestCase):
+    INVEST = "/api/v1/simulators/calculate-investment/"
+    BODY = {
+        "purchase_price": 100_000_000,
+        "down_payment": 25_000_000,
+        "monthly_rent_estimated": 600_000,
+        "loan_duration_years": 15,
+    }
+
+    def setUp(self):
+        self.admin = make_user("admin4@test.ci", UserRole.ADMIN)
+        self.anon = APIClient()
+
+    def test_defaults_are_public_and_match_previous_behaviour(self):
+        d = self.anon.get("/api/v1/simulators/defaults/").json()
+        assert (float(d["notary_fees_percent"]), float(d["interest_rate"]), float(d["max_debt_percent"])) == (
+            8.0,
+            7.5,
+            33.0,
+        )
+
+    def test_changing_notary_fees_changes_the_total_cost(self):
+        before = self.anon.post(self.INVEST, self.BODY, format="json").json()
+        assert float(before["total_investment_cost"]) == 108_000_000
+        assert (
+            client_for(self.admin)
+            .patch("/api/v1/crm/admin/settings/", {"notary_fees_percent": "0"}, format="json")
+            .status_code
+            == 200
+        )
+        after = self.anon.post(self.INVEST, self.BODY, format="json").json()
+        assert float(after["total_investment_cost"]) == 100_000_000
+        # Un taux fourni par l'appelant l'emporte toujours.
+        explicit = self.anon.post(self.INVEST, {**self.BODY, "notary_fees_rate": "0.05"}, format="json").json()
+        assert float(explicit["total_investment_cost"]) == 105_000_000
+
+    def test_debt_ratio_setting_changes_capacity(self):
+        body = {
+            "monthly_income": 1_500_000,
+            "monthly_charges": 100_000,
+            "monthly_existing_credits": 0,
+            "available_down_payment": 0,
+            "loan_duration_years": 15,
+        }
+        url = "/api/v1/simulators/borrowing-capacity/"
+        base = float(self.anon.post(url, body, format="json").json()["max_monthly_payment"])
+        client_for(self.admin).patch("/api/v1/crm/admin/settings/", {"max_debt_percent": "40"}, format="json")
+        assert float(self.anon.post(url, body, format="json").json()["max_monthly_payment"]) > base
+
+    def test_out_of_range_values_are_refused(self):
+        assert (
+            client_for(self.admin)
+            .patch("/api/v1/crm/admin/settings/", {"notary_fees_percent": "50"}, format="json")
+            .status_code
+            == 400
+        )

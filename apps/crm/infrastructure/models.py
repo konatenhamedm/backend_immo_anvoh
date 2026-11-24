@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
@@ -299,6 +300,16 @@ class CRMSettings(models.Model):
     threshold_chaud = models.PositiveSmallIntegerField("Seuil chaud", default=70)
     threshold_tres_chaud = models.PositiveSmallIntegerField("Seuil très chaud", default=90)
     followup_after_days = models.PositiveSmallIntegerField("Relance après (jours d'inactivité)", default=3)
+    # Hypothèses des simulateurs publics (rentabilité, capacité d'achat).
+    notary_fees_percent = models.DecimalField(
+        "Frais de notaire (%)", max_digits=5, decimal_places=2, default=Decimal("8")
+    )
+    simulator_interest_rate = models.DecimalField(
+        "Taux bancaire proposé (%)", max_digits=5, decimal_places=2, default=Decimal("7.5")
+    )
+    max_debt_percent = models.DecimalField(
+        "Taux d'endettement maximal (%)", max_digits=5, decimal_places=2, default=Decimal("33")
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
