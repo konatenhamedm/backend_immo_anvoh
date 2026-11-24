@@ -239,3 +239,5 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3100")
 
 # Connexion avec Google : identifiant client OAuth « Web » (Google Cloud Console). Vide = fonction désactivée.
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+# Comptes équipe / notaire autorisés à se connecter avec Google (adresses séparées par des virgules). Par défaut : aucun.
+GOOGLE_STAFF_EMAILS = [e.strip().lower() for e in os.getenv("GOOGLE_STAFF_EMAILS", "").split(",") if e.strip()]

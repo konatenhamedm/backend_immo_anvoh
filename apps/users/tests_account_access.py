@@ -118,3 +118,22 @@ class GoogleLoginTests(TestCase):
             mock.patch("apps.users.application.google_login.verify", return_value=self.claims(email="boss@test.ci")),
         ):
             assert self.c.post(self.URL, {"credential": "ok"}, format="json").status_code == 400
+
+    def test_listed_staff_account_can_use_google(self):
+        from unittest import mock
+
+        User.objects.create_user(
+            email="boss@test.ci",
+            password="Un-Mot2Passe-Solide",
+            first_name="B",
+            last_name="B",
+            phone_number="0700000000",
+            role=UserRole.ADMIN,
+        )
+        claims = self.claims(email="boss@test.ci")
+        with (
+            self.settings(GOOGLE_CLIENT_ID="cid", GOOGLE_STAFF_EMAILS=["boss@test.ci"]),
+            mock.patch("apps.users.application.google_login.verify", return_value=claims),
+        ):
+            r = self.c.post(self.URL, {"credential": "ok"}, format="json")
+        assert r.status_code == 200 and r.json()["user"]["role"] == "ADMIN"

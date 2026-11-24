@@ -2,7 +2,7 @@
 
 Règles de sécurité :
 - l'adresse e-mail doit être vérifiée par Google ;
-- seuls les profils grand public peuvent se connecter ainsi (équipe, notaires : mot de passe) ;
+- seuls les profils grand public peuvent se connecter ainsi ; l'équipe et les notaires doivent figurer dans GOOGLE_STAFF_EMAILS ;
 - un compte inconnu est créé en « Particulier », sans mot de passe utilisable.
 """
 
@@ -36,8 +36,8 @@ def login(credential: str) -> User:
     if user:
         if not user.is_active:
             raise GoogleLoginError("Ce compte est suspendu.")
-        if user.role not in SELF_SERVICE_ROLES and user.role != UserRole.PARTICULIER:
-            raise GoogleLoginError("Ce compte se connecte avec son mot de passe.")
+        if user.role not in SELF_SERVICE_ROLES and user.email.lower() not in settings.GOOGLE_STAFF_EMAILS:
+            raise GoogleLoginError("Ce compte se connecte avec son mot de passe (ou son code e-mail).")
         return user
     user = User(
         email=email,
