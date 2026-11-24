@@ -24,6 +24,10 @@ PUBLIC_OPERATIONS = {
     ("post", "auth/register/"),
     ("post", "auth/login/"),
     ("post", "auth/token/refresh/"),
+    ("post", "auth/password/forgot/"),
+    ("post", "auth/password/reset/"),
+    ("post", "auth/code/request/"),
+    ("post", "auth/code/verify/"),
     # Catalogue public
     ("get", "properties/home/"),
     ("get", "properties/search/"),

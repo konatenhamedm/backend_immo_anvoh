@@ -7,15 +7,19 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.users.application import account_access
 from apps.users.infrastructure.models import IdentityStatus, User
 
 from .permissions import IsAdminRole
 from .serializers import (
     AdminUserSerializer,
     AuthTokenResponseSerializer,
+    EmailOnlySerializer,
     IdentityDocumentSerializer,
+    LoginCodeVerifySerializer,
     LoginInputSerializer,
     PasswordChangeSerializer,
+    PasswordResetSerializer,
     RegisterUserSerializer,
     UserProfileSerializer,
 )
@@ -155,3 +159,78 @@ class UserDetailAdminView(generics.RetrieveUpdateDestroyAPIView):
 
             raise ValidationError({"detail": "Vous ne pouvez pas supprimer votre propre compte."})
         instance.delete()
+
+
+ACCEPTED = {"detail": "Si un compte correspond à cette adresse, un message vient d'être envoyé."}
+
+
+@extend_schema(
+    tags=["Authentification & Profil"],
+    request=EmailOnlySerializer,
+    responses={200: None},
+    summary="Mot de passe oublié : envoie un lien de réinitialisation par e-mail",
+)
+class PasswordForgotView(ScopedThrottleMixin, APIView):
+    throttle_scope = "auth"
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        s = EmailOnlySerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        account_access.send_password_reset(s.validated_data["email"])
+        return Response(ACCEPTED)
+
+
+@extend_schema(
+    tags=["Authentification & Profil"],
+    request=PasswordResetSerializer,
+    responses={200: AuthTokenResponseSerializer},
+    summary="Choisir un nouveau mot de passe avec le lien reçu (connecte l'utilisateur)",
+)
+class PasswordResetView(ScopedThrottleMixin, APIView):
+    throttle_scope = "auth"
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        s = PasswordResetSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        user = account_access.reset_password(**s.validated_data)
+        if not user:
+            return Response({"detail": "Ce lien est invalide ou a expiré."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(_tokens_for(user))
+
+
+@extend_schema(
+    tags=["Authentification & Profil"],
+    request=EmailOnlySerializer,
+    responses={200: None},
+    summary="Envoie un code de connexion à 6 chiffres par e-mail",
+)
+class LoginCodeRequestView(ScopedThrottleMixin, APIView):
+    throttle_scope = "auth"
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        s = EmailOnlySerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        account_access.send_login_code(s.validated_data["email"])
+        return Response(ACCEPTED)
+
+
+@extend_schema(
+    tags=["Authentification & Profil"],
+    request=LoginCodeVerifySerializer,
+    responses={200: AuthTokenResponseSerializer},
+    summary="Se connecter avec le code reçu par e-mail",
+)
+class LoginCodeVerifyView(ScopedThrottleMixin, APIView):
+    throttle_scope = "auth"
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        s = LoginCodeVerifySerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        user = account_access.verify_login_code(s.validated_data["email"], s.validated_data["code"])
+        if not user:
+            return Response({"detail": "Code incorrect ou expiré."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(_tokens_for(user))

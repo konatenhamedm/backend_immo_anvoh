@@ -121,3 +121,18 @@ class User(AbstractUser):
     def __str__(self):
         full_name = f"{self.first_name} {self.last_name}".strip()
         return f"{full_name or self.email} ({self.get_role_display()})"
+
+
+class LoginCode(models.Model):
+    """Code à 6 chiffres envoyé par e-mail pour se connecter sans mot de passe (haché, 10 minutes, 5 essais)."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_codes")
+    code_hash = models.CharField(max_length=128)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveSmallIntegerField(default=0)
+    used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["user", "-created_at"])]
