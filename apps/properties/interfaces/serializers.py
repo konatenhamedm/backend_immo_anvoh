@@ -2,8 +2,10 @@ from django.core.exceptions import ObjectDoesNotExist
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.properties.domain.images import MAX_UPLOAD_BYTES
 from apps.properties.infrastructure.models import (
     DevelopmentProject,
+    ProjectDocument,
     ProjectLot,
     Property,
     PropertyFavorite,
@@ -55,10 +57,15 @@ def favorite_ids_for(request):
 
 class PropertyImageSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = PropertyImage
-        fields = ["id", "url", "caption", "is_cover", "order"]
+        fields = ["id", "url", "thumbnail_url", "caption", "is_cover", "order"]
+
+    @extend_schema_field({"type": "string", "format": "uri", "nullable": True})
+    def get_thumbnail_url(self, obj):
+        return obj.thumbnail_url(self.context.get("request"))
 
     @extend_schema_field({"type": "string", "format": "uri", "nullable": True})
     def get_url(self, obj):
@@ -85,6 +92,56 @@ class ProjectLotSerializer(serializers.ModelSerializer):
         ]
 
 
+class ProjectDocumentSerializer(serializers.ModelSerializer):
+    kind_display = serializers.CharField(source="get_kind_display", read_only=True)
+    url = serializers.SerializerMethodField()
+    size = serializers.SerializerMethodField()
+    format = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProjectDocument
+        fields = ["id", "kind", "kind_display", "title", "url", "size", "format", "created_at"]
+        read_only_fields = fields
+
+    @extend_schema_field({"type": "string", "format": "uri"})
+    def get_url(self, obj):
+        request = self.context.get("request")
+        return request.build_absolute_uri(obj.file.url) if request else obj.file.url
+
+    def get_size(self, obj) -> int | None:
+        try:
+            return obj.file.size
+        except (OSError, ValueError):
+            return None
+
+    def get_format(self, obj) -> str:
+        return obj.file.name.rsplit(".", 1)[-1].lower() if "." in obj.file.name else ""
+
+
+class ProjectDocumentUploadSerializer(serializers.Serializer):
+    ALLOWED = {"pdf", "jpg", "jpeg", "png", "webp"}
+    MAX_BYTES = 20 * 1024 * 1024
+
+    kind = serializers.ChoiceField(choices=ProjectDocument._meta.get_field("kind").choices, default="DOCUMENT")
+    title = serializers.CharField(max_length=150)
+    file = serializers.FileField()
+
+    def validate_file(self, f):
+        ext = f.name.rsplit(".", 1)[-1].lower() if "." in f.name else ""
+        if ext not in self.ALLOWED:
+            raise serializers.ValidationError("Format accepté : PDF, JPG, PNG ou WebP.")
+        if f.size > self.MAX_BYTES:
+            raise serializers.ValidationError("Fichier trop lourd (20 Mo au maximum).")
+        return f
+
+
+class PaymentStepSerializer(serializers.Serializer):
+    """Une étape de l'échéancier : « Réservation : 10 % »."""
+
+    label = serializers.CharField(max_length=80)
+    percent = serializers.FloatField(min_value=0, max_value=100)
+
+
 class ProjectCoverMixin:
     """Image de couverture d'un programme : fichier téléversé, sinon URL externe, sinon rien."""
 
@@ -100,8 +157,15 @@ class DevelopmentProjectSerializer(ProjectCoverMixin, serializers.ModelSerialize
     """Programme complet, avec la liste de ses lots (administration des programmes, fiche d'un programme)."""
 
     lots = ProjectLotSerializer(many=True, read_only=True)
+    documents = ProjectDocumentSerializer(many=True, read_only=True)
+    payment_schedule = PaymentStepSerializer(many=True, required=False)
     cover = serializers.SerializerMethodField()
     lots_sold = serializers.SerializerMethodField()
+
+    def validate_payment_schedule(self, steps):
+        if sum(s["percent"] for s in steps) > 100.0001:
+            raise serializers.ValidationError("L'échéancier ne peut pas dépasser 100 %.")
+        return steps
 
     class Meta:
         model = DevelopmentProject
@@ -124,8 +188,11 @@ class DevelopmentProjectSerializer(ProjectCoverMixin, serializers.ModelSerialize
             "brochure_pdf",
             "virtual_tour_url",
             "construction_progress",
+            "payment_schedule",
+            "payment_notes",
             "is_featured",
             "lots",
+            "documents",
         ]
         read_only_fields = ["slug"]
 
@@ -175,6 +242,7 @@ class PropertyCardSerializer(serializers.ModelSerializer):
     """
 
     cover_image = serializers.SerializerMethodField()
+    cover_thumb = serializers.SerializerMethodField()
     image_urls = serializers.SerializerMethodField()
     is_favorited = serializers.SerializerMethodField()
     property_type_display = serializers.CharField(source="get_property_type_display", read_only=True)
@@ -219,6 +287,7 @@ class PropertyCardSerializer(serializers.ModelSerializer):
             "recommended_down_payment",
             "investment_score",
             "cover_image",
+            "cover_thumb",
             "image_urls",
             "is_favorited",
             "has_virtual_tour",
@@ -239,6 +308,11 @@ class PropertyCardSerializer(serializers.ModelSerializer):
     def get_cover_image(self, obj):
         imgs = _images(obj)
         return imgs[0].url(self.context.get("request")) if imgs else None
+
+    @extend_schema_field({"type": "string", "format": "uri", "nullable": True})
+    def get_cover_thumb(self, obj):
+        imgs = _images(obj)
+        return imgs[0].thumbnail_url(self.context.get("request")) if imgs else None
 
     @extend_schema_field({"type": "array", "items": {"type": "string", "format": "uri"}})
     def get_image_urls(self, obj):
@@ -446,6 +520,11 @@ class ImageUploadSerializer(serializers.Serializer):
     external_url = serializers.URLField(required=False, max_length=500)
     caption = serializers.CharField(required=False, allow_blank=True, max_length=150)
     is_cover = serializers.BooleanField(required=False, default=False)
+
+    def validate_image(self, f):
+        if f.size > MAX_UPLOAD_BYTES:
+            raise serializers.ValidationError("Photo trop lourde (15 Mo au maximum).")
+        return f
 
     def validate(self, data):
         if not data.get("image") and not data.get("external_url"):

@@ -20,6 +20,8 @@ from .images import PropertyImageDetailView, PropertyImageUploadView
 from .owner import OwnerDashboardView, OwnerPropertyDetailView, OwnerPropertyListCreateView
 from .projects import (
     DevelopmentProjectBySlugView,
+    ProjectDocumentCreateView,
+    ProjectDocumentDeleteView,
     DevelopmentProjectDetailView,
     DevelopmentProjectListView,
     ProjectLotDetailView,
@@ -37,6 +39,8 @@ __all__ = [
     "DevelopmentProjectListView",
     "DevelopmentProjectDetailView",
     "DevelopmentProjectBySlugView",
+    "ProjectDocumentCreateView",
+    "ProjectDocumentDeleteView",
     "ProjectLotListCreateView",
     "ProjectLotDetailView",
     "FavoritesListView",

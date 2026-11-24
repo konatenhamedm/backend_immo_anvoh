@@ -93,6 +93,17 @@ Règle : découper un module dès qu'il dépasse ~250 lignes ou 3 publics.
 | `analytics` | Mesure d'audience, canal d'acquisition des prospects, ROI marketing par canal | `/api/v1/analytics/` |
 | `notifications` | Notifications (application + e-mail), attribution d'un conseiller, tâches de relance | `/api/v1/notifications/` |
 
+### Médias, programmes et performance
+
+- **Photos** : à l'envoi, chaque photo est redressée (EXIF), réduite à 1 600 px, recompressée en JPEG (≈ 6 Mo → 200-400 Ko) et dotée d'une miniature de 480 px
+  (`cover_thumb` sur les cartes, `thumbnail_url` sur la galerie). Limites : 15 Mo, 50 millions de pixels ; une photo de petite taille n'est jamais agrandie ; les images
+  externes (URL) ne sont pas modifiées. Les photos déjà enregistrées avant cette version n'ont pas de miniature (le site retombe sur l'image complète).
+- **Programmes** : `payment_schedule` (échéancier en %, 100 % au plus) et `payment_notes` ; plans et documents (`POST /properties/projects/<id>/documents/`,
+  PDF/JPG/PNG/WebP, 20 Mo ; `DELETE /properties/projects/documents/<id>/`), listés dans la fiche programme.
+- **Recherche** : `q` fonctionne **par mots** (« Cocody Abatta », « villa Cocody », « F3 Abatta » : chaque mot doit correspondre au titre, au lieu, au type, à la typologie, à la
+  description ou à la référence). Mesuré sur 5 000 biens publiés : 20 à 60 ms par recherche (objectif de la spécification : moins de 3 s) ; un test garde le nombre de requêtes constant.
+  Limite connue : la recherche distingue les accents (« Résidence » ≠ « Residence »).
+
 ### Notifications et relances
 
 Le module `notifications` prévient **l'équipe** (conseiller du prospect, sinon du bien, sinon administrateurs) d'un nouveau prospect, d'une

@@ -8,6 +8,8 @@ from apps.properties.infrastructure.models import (
     DevelopmentProject,
     Property,
     PropertyStatus,
+    PropertyType,
+    PropertyTypology,
     VerificationStatus,
 )
 from apps.users.interfaces.permissions import is_staff_or_agent
@@ -47,16 +49,46 @@ def can_manage(user, prop) -> bool:
     return is_staff_or_agent(user) or (user.is_authenticated and prop.owner_id == user.id)
 
 
+MAX_SEARCH_WORDS = 6
+
+
+def _search_words(q: str) -> list[str]:
+    return [w for w in q.replace(",", " ").split() if w][:MAX_SEARCH_WORDS]
+
+
+def _type_codes_for(word: str) -> list[str]:
+    """« villa », « villas », « app » → codes de type de bien dont le libellé commence par ce mot (3 lettres au moins)."""
+    w = word.lower()
+    candidates = {w, w[:-1] if w.endswith("s") else w}
+    if len(w) < 3:
+        return []
+    return [code for code, label in PropertyType.choices if any(label.lower().startswith(c) for c in candidates if len(c) >= 3)]
+
+
+def _word_matches(word: str) -> Q:
+    """Un mot de la recherche correspond au titre, au lieu, à la description, à la référence, au type ou à la typologie (F3…)."""
+    cond = (
+        Q(title__icontains=word)
+        | Q(commune__icontains=word)
+        | Q(neighborhood__icontains=word)
+        | Q(description__icontains=word)
+        | Q(reference__icontains=word)
+    )
+    codes = _type_codes_for(word)
+    if codes:
+        cond |= Q(property_type__in=codes)
+    if word.upper() in PropertyTypology.values:
+        cond |= Q(typology=word.upper())
+    return cond
+
+
 def apply_search_filters(qs, params):
-    q = params.get("q")
-    if q:
-        qs = qs.filter(
-            Q(title__icontains=q)
-            | Q(commune__icontains=q)
-            | Q(neighborhood__icontains=q)
-            | Q(description__icontains=q)
-            | Q(reference__icontains=q)
-        )
+    q = (params.get("q") or "").strip()
+    words = _search_words(q)
+    # Recherche par MOTS : « Cocody Abatta » ou « villa Cocody » trouvent les biens qui correspondent à chaque mot
+    # (commune, quartier, type…), et non la seule phrase exacte.
+    for word in words:
+        qs = qs.filter(_word_matches(word))
     for param, lookup in (
         ("commune", "commune__icontains"),
         ("neighborhood", "neighborhood__icontains"),
@@ -80,11 +112,16 @@ def apply_search_filters(qs, params):
     ordering = params.get("ordering", "-created_at")
     if ordering == "relevance":
         # Pertinence : correspondance du texte cherché (titre > lieu > reste), puis mise en avant et score.
-        if q:
+        if words:
+            title_hit = Q()
+            place_hit = Q()
+            for w in words:
+                title_hit |= Q(title__icontains=w)
+                place_hit |= Q(commune__icontains=w) | Q(neighborhood__icontains=w)
             qs = qs.annotate(
                 _rank=Case(
-                    When(title__icontains=q, then=Value(3)),
-                    When(Q(commune__icontains=q) | Q(neighborhood__icontains=q), then=Value(2)),
+                    When(title_hit, then=Value(3)),
+                    When(place_hit, then=Value(2)),
                     default=Value(1),
                     output_field=IntegerField(),
                 )

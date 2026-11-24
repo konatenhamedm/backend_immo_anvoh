@@ -1,10 +1,15 @@
 from django.contrib import admin
 
-from .infrastructure.models import DevelopmentProject, ProjectLot, Property, PropertyFavorite, PropertyImage
+from .infrastructure.models import DevelopmentProject, ProjectDocument, ProjectLot, Property, PropertyFavorite, PropertyImage
 
 
 class PropertyImageInline(admin.TabularInline):
     model = PropertyImage
+    extra = 1
+
+
+class ProjectDocumentInline(admin.TabularInline):
+    model = ProjectDocument
     extra = 1
 
 
@@ -27,7 +32,7 @@ class DevelopmentProjectAdmin(admin.ModelAdmin):
     list_filter = ("commune", "is_featured")
     search_fields = ("name", "developer_name", "commune")
     prepopulated_fields = {"slug": ("name",)}
-    inlines = [ProjectLotInline]
+    inlines = [ProjectLotInline, ProjectDocumentInline]
 
 
 @admin.register(Property)

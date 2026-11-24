@@ -159,3 +159,78 @@ class ProjectPublicApiTests(TestCase):
         row = (r.data["results"] if isinstance(r.data, dict) else r.data)[0]
         self.assertNotIn("lots", row)
         self.assertEqual((row["lots_available"], row["lots_sold"]), (1, 1))
+
+
+class MultiWordSearchTests(TestCase):
+    """L'exemple de la spécification : l'utilisateur saisit « Cocody Abatta » (commune + quartier)."""
+
+    URL = "/api/v1/properties/search/"
+
+    def setUp(self):
+        from apps.properties.infrastructure.models import Property
+
+        def make(title, commune, quarter, kind, **extra):
+            return Property.objects.create(
+                title=title, description="d", property_type=kind, price=Decimal("50000000"), commune=commune,
+                neighborhood=quarter, surface_sqm=Decimal("100"), status=PropertyStatus.DISPONIBLE, **extra,
+            )
+
+        make("Appartement lumineux", "Cocody", "Abatta", "APPARTEMENT", typology="F3")
+        make("Villa avec piscine", "Cocody", "Angré", "VILLA", typology="F5")
+        make("Terrain viabilisé", "Bingerville", "Akandjé", "TERRAIN")
+
+    def _titles(self, q):
+        r = APIClient().get(self.URL, {"q": q})
+        self.assertEqual(r.status_code, 200)
+        return sorted(p["title"] for p in r.data["results"])
+
+    def test_commune_and_quarter_in_any_order(self):
+        self.assertEqual(self._titles("Cocody Abatta"), ["Appartement lumineux"])
+        self.assertEqual(self._titles("abatta cocody"), ["Appartement lumineux"])
+
+    def test_type_word_and_place(self):
+        self.assertEqual(self._titles("villa Cocody"), ["Villa avec piscine"])
+        self.assertEqual(self._titles("villas cocody"), ["Villa avec piscine"])  # pluriel
+        self.assertEqual(self._titles("terrain bingerville"), ["Terrain viabilisé"])
+        self.assertEqual(self._titles("appart abatta"), ["Appartement lumineux"])  # début de mot
+
+    def test_typology_and_every_word_must_match(self):
+        self.assertEqual(self._titles("F3 Abatta"), ["Appartement lumineux"])
+        self.assertEqual(self._titles("F5 Abatta"), [])  # F5 n'est pas à Abatta
+        self.assertEqual(self._titles("Cocody Marcory"), [])
+
+    def test_blank_query_and_many_words_are_harmless(self):
+        self.assertEqual(len(self._titles("   ")), 3)
+        self.assertEqual(self._titles("Cocody " * 40), sorted(["Appartement lumineux", "Villa avec piscine"]))
+
+
+class SearchQueryCountTests(TestCase):
+    """La recherche garde un nombre de requêtes constant : pas de requête par bien (spécification §35 : recherche < 3 s)."""
+
+    def test_query_count_does_not_grow_with_results(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from apps.properties.infrastructure.models import Property, PropertyImage
+
+        def add(n):
+            for i in range(n):
+                p = Property.objects.create(
+                    title=f"Bien {i}", description="d", property_type="VILLA", price=Decimal("50000000"),
+                    commune="Cocody", neighborhood="Angré", surface_sqm=Decimal("100"), status=PropertyStatus.DISPONIBLE,
+                )
+                PropertyImage.objects.create(property=p, external_url="https://x/a.jpg", is_cover=True)
+                PropertyImage.objects.create(property=p, external_url="https://x/b.jpg")
+
+        def queries():
+            with CaptureQueriesContext(connection) as ctx:
+                r = APIClient().get("/api/v1/properties/search/?page_size=12")
+            self.assertEqual(r.status_code, 200)
+            return len(ctx.captured_queries)
+
+        add(3)
+        few = queries()
+        add(20)
+        many = queries()
+        self.assertEqual(few, many)
+        self.assertLessEqual(many, 5)

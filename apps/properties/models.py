@@ -1,6 +1,8 @@
 from .infrastructure.models import (
     PUBLIC_STATUSES,
     DevelopmentProject,
+    ProjectDocument,
+    ProjectDocumentKind,
     ProjectLot,
     Property,
     PropertyFavorite,
@@ -20,6 +22,8 @@ __all__ = [
     "PropertyFavorite",
     "DevelopmentProject",
     "ProjectLot",
+    "ProjectDocument",
+    "ProjectDocumentKind",
     "PropertyType",
     "PropertyTypology",
     "PropertyGoal",

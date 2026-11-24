@@ -7,6 +7,8 @@ from .views import (
     AdminPropertyListCreateView,
     CatalogMetaView,
     DevelopmentProjectBySlugView,
+    ProjectDocumentCreateView,
+    ProjectDocumentDeleteView,
     DevelopmentProjectDetailView,
     DevelopmentProjectListView,
     FavoritesListView,
@@ -41,6 +43,8 @@ urlpatterns = [
     path("projects/", DevelopmentProjectListView.as_view(), name="projects-list"),
     path("projects/slug/<slug:slug>/", DevelopmentProjectBySlugView.as_view(), name="projects-by-slug"),
     path("projects/<uuid:id>/", DevelopmentProjectDetailView.as_view(), name="projects-detail"),
+    path("projects/<uuid:project_id>/documents/", ProjectDocumentCreateView.as_view(), name="project-documents-create"),
+    path("projects/documents/<uuid:id>/", ProjectDocumentDeleteView.as_view(), name="project-documents-delete"),
     path("projects/<uuid:project_id>/lots/", ProjectLotListCreateView.as_view(), name="project-lots-list-create"),
     path("lots/<uuid:id>/", ProjectLotDetailView.as_view(), name="project-lot-detail"),
     # Favoris

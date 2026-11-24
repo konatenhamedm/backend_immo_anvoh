@@ -5,6 +5,8 @@ from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 
+from apps.properties.domain.images import FULL_SIDE, THUMB_SIDE, optimize_image
+
 
 class PropertyType(models.TextChoices):
     APPARTEMENT = "APPARTEMENT", "Appartement"
@@ -103,6 +105,9 @@ class DevelopmentProject(models.Model):
     brochure_pdf = models.FileField("Brochure / Documents PDF", upload_to="projects/docs/", blank=True, null=True)
     virtual_tour_url = models.URLField("Visite virtuelle 3D", blank=True, null=True)
     construction_progress = models.PositiveSmallIntegerField("Avancement du chantier (%)", default=0)
+    # Modalités de paiement (spécification §13) : échéancier en pourcentages, ex. [{"label": "Réservation", "percent": 10}, …]
+    payment_schedule = models.JSONField("Échéancier de paiement", default=list, blank=True)
+    payment_notes = models.TextField("Précisions sur le paiement", blank=True)
 
     is_featured = models.BooleanField("Mettre en avant sur l'accueil", default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -118,7 +123,33 @@ class DevelopmentProject(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = unique_slug(self, self.name, 190)
+        if self.cover_image and not getattr(self.cover_image, "_committed", True):
+            self.cover_image = optimize_image(self.cover_image, stem="couverture")
         super().save(*args, **kwargs)
+
+
+class ProjectDocumentKind(models.TextChoices):
+    PLAN = "PLAN", "Plan"
+    DOCUMENT = "DOCUMENT", "Document"
+
+
+class ProjectDocument(models.Model):
+    """Plans et documents téléchargeables d'un programme (spécification §13 : « plans ; documents »)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey(DevelopmentProject, on_delete=models.CASCADE, related_name="documents")
+    kind = models.CharField("Type", max_length=10, choices=ProjectDocumentKind.choices, default=ProjectDocumentKind.DOCUMENT)
+    title = models.CharField("Titre", max_length=150)
+    file = models.FileField("Fichier", upload_to="projects/documents/%Y/%m/")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["kind", "created_at"]
+        verbose_name = "Plan ou document de programme"
+        verbose_name_plural = "Plans et documents de programme"
+
+    def __str__(self):
+        return f"{self.get_kind_display()} : {self.title}"
 
 
 class ProjectLot(models.Model):
@@ -306,6 +337,8 @@ class PropertyImage(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name="images")
     image = models.ImageField(upload_to="properties/%Y/%m/", blank=True, null=True)
+    # Version 480 px pour les cartes et listes (générée automatiquement à l'envoi).
+    thumbnail = models.ImageField(upload_to="properties/thumbs/%Y/%m/", blank=True, null=True)
     external_url = models.URLField("URL externe", max_length=500, blank=True)
     caption = models.CharField("Légende", max_length=150, blank=True)
     is_cover = models.BooleanField("Photo de couverture", default=False)
@@ -314,10 +347,23 @@ class PropertyImage(models.Model):
     class Meta:
         ordering = ["order", "id"]
 
+    def save(self, *args, **kwargs):
+        # Fichier tout juste envoyé (pas encore enregistré) : on le réduit et on fabrique la miniature.
+        if self.image and not getattr(self.image, "_committed", True):
+            original = self.image
+            self.image = optimize_image(original, FULL_SIDE, stem="photo")
+            self.thumbnail = optimize_image(original, THUMB_SIDE, quality=78, stem="miniature")
+        super().save(*args, **kwargs)
+
     def url(self, request=None):
         if self.image:
             return request.build_absolute_uri(self.image.url) if request else self.image.url
         return self.external_url or None
+
+    def thumbnail_url(self, request=None):
+        if self.thumbnail:
+            return request.build_absolute_uri(self.thumbnail.url) if request else self.thumbnail.url
+        return None
 
 
 class PropertyFavorite(models.Model):
