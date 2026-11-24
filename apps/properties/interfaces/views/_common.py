@@ -1,6 +1,9 @@
 """Requêtes et fonctions partagées par les vues du module `properties` (aucune vue ici)."""
 
-from django.db.models import Case, Count, IntegerField, Q, Value, When
+import math
+
+from django.db.models import Case, Count, F, FloatField, IntegerField, Q, Value, When
+from django.db.models.functions import ACos, Cast, Cos, Least, Radians, Sin
 from rest_framework.exceptions import NotFound
 
 from apps.properties.infrastructure.models import (
@@ -82,6 +85,54 @@ def _word_matches(word: str) -> Q:
     return cond
 
 
+def _float(value, low=None, high=None):
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(v) or math.isinf(v) or (low is not None and v < low) or (high is not None and v > high):
+        return None
+    return v
+
+
+def distance_expression(lat: float, lng: float):
+    """Distance en km (formule de Haversine, rayon terrestre 6 371 km) entre (lat, lng) et la position du bien."""
+    lat0 = Radians(Value(lat, output_field=FloatField()))
+    lng0 = Radians(Value(lng, output_field=FloatField()))
+    # Les positions sont stockées en DECIMAL : on les convertit en flottants avant le calcul trigonométrique.
+    plat = Radians(Cast(F("latitude"), FloatField()))
+    plng = Radians(Cast(F("longitude"), FloatField()))
+    cosine = Cos(lat0) * Cos(plat) * Cos(plng - lng0) + Sin(lat0) * Sin(plat)
+    return 6371.0 * ACos(Least(Value(1.0, output_field=FloatField()), cosine))
+
+
+def apply_geo_filters(qs, params):
+    """
+    Recherche géographique (spécification §6) :
+    - lat, lng, radius_km : biens autour d'un point (autour de moi, autour d'un lieu) ; chaque bien reçoit distance_km ;
+    - bbox=sud,ouest,nord,est : biens dans la zone visible d'une carte.
+    Renvoie (queryset, near) : near vaut True quand le tri « distance » est possible.
+    """
+    lat, lng = _float(params.get("lat"), -90, 90), _float(params.get("lng"), -180, 180)
+    radius = _float(params.get("radius_km"), 0.1, 200)
+    near = lat is not None and lng is not None and radius is not None
+    if near:
+        dlat = radius / 111.0
+        dlng = radius / (111.0 * max(math.cos(math.radians(lat)), 0.01))
+        qs = (
+            qs.exclude(latitude__isnull=True, longitude__isnull=True)
+            .filter(latitude__gte=lat - dlat, latitude__lte=lat + dlat, longitude__gte=lng - dlng, longitude__lte=lng + dlng)  # pré-filtre
+            .annotate(distance_km=distance_expression(lat, lng))
+            .filter(distance_km__lte=radius)
+        )
+    box = str(params.get("bbox") or "").split(",")
+    if len(box) == 4:
+        s_, w_, n_, e_ = (_float(x) for x in box)
+        if None not in (s_, w_, n_, e_) and -90 <= s_ <= n_ <= 90 and -180 <= w_ <= e_ <= 180:
+            qs = qs.filter(latitude__gte=s_, latitude__lte=n_, longitude__gte=w_, longitude__lte=e_)
+    return qs, near
+
+
 def apply_search_filters(qs, params):
     q = (params.get("q") or "").strip()
     words = _search_words(q)
@@ -109,7 +160,10 @@ def apply_search_filters(qs, params):
         qs = qs.filter(verification_status__in=[VerificationStatus.VERIFIE, VerificationStatus.VERIFICATION_RENFORCEE])
     if params.get("has_tour") in ("1", "true"):
         qs = qs.exclude(virtual_tour_url__isnull=True).exclude(virtual_tour_url="")
+    qs, near = apply_geo_filters(qs, params)
     ordering = params.get("ordering", "-created_at")
+    if ordering == "distance" and near:
+        return qs.order_by("distance_km", "-created_at")
     if ordering == "relevance":
         # Pertinence : correspondance du texte cherché (titre > lieu > reste), puis mise en avant et score.
         if words:

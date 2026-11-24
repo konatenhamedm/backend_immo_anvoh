@@ -104,6 +104,16 @@ Règle : découper un module dès qu'il dépasse ~250 lignes ou 3 publics.
   description ou à la référence). Mesuré sur 5 000 biens publiés : 20 à 60 ms par recherche (objectif de la spécification : moins de 3 s) ; un test garde le nombre de requêtes constant.
   Limite connue : la recherche distingue les accents (« Résidence » ≠ « Residence »).
 
+### Géolocalisation et carte (spécification §6)
+
+- **Recherche géographique** : `GET /properties/search/?lat=&lng=&radius_km=` (biens autour d'un point, `distance_km` renvoyée, `ordering=distance`) et `bbox=sud,ouest,nord,est`
+  (zone d'une carte). Distance de Haversine calculée en base ; paramètres invalides ignorés, jamais une erreur.
+- **Vie privée des positions** : l'API publique n'expose que des coordonnées **arrondies à 2 décimales (≈ 1 km)** : le site promet « adresse exacte communiquée après rendez-vous ».
+  Seuls l'équipe et le propriétaire du bien reçoivent la position exacte. Les distances sont calculées sur les positions exactes côté serveur.
+- **Lieux** : `GET /properties/places/` liste communes et quartiers avec leur position centrale (moyenne des biens publiés) et leur nombre de biens ; sert à « autour d'un lieu » et aux quartiers voisins.
+- **Données de démonstration** : `python manage.py set_demo_coordinates` renseigne des positions **approximatives** (centres de communes d'Abidjan) pour les biens sans position, afin de montrer la carte.
+  Ce sont des ordres de grandeur, pas des mesures : en production, l'équipe saisit la vraie position de chaque bien. Refuse de s'exécuter si `DEBUG=False`.
+
 ### Notifications et relances
 
 Le module `notifications` prévient **l'équipe** (conseiller du prospect, sinon du bien, sinon administrateurs) d'un nouveau prospect, d'une

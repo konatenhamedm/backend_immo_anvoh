@@ -28,6 +28,7 @@ PUBLIC_OPERATIONS = {
     ("get", "properties/home/"),
     ("get", "properties/search/"),
     ("get", "properties/meta/"),
+    ("get", "properties/places/"),
     ("get", "properties/slugs/"),
     ("get", "properties/slug/<slug:slug>/"),
     ("get", "properties/<uuid:id>/"),

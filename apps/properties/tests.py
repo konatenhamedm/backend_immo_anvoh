@@ -234,3 +234,82 @@ class SearchQueryCountTests(TestCase):
         many = queries()
         self.assertEqual(few, many)
         self.assertLessEqual(many, 5)
+
+
+class GeoSearchTests(TestCase):
+    """Spécification §6 : biens autour d'un point, par zone de carte ; positions publiques arrondies ; lieux."""
+
+    URL = "/api/v1/properties/search/"
+
+    def setUp(self):
+        from apps.properties.infrastructure.models import Property
+
+        self.owner = User.objects.create_user(email="o@test.ci", password="Un-Mot2Passe-Solide", first_name="O", last_name="W", phone_number="+2250700000000", role=UserRole.PROPRIETAIRE)
+        self.admin = User.objects.create_user(email="a@test.ci", password="Un-Mot2Passe-Solide", first_name="A", last_name="D", phone_number="+2250700000001", role=UserRole.ADMIN)
+
+        def make(title, lat, lng, status=PropertyStatus.DISPONIBLE, commune="Cocody", quarter="Riviera"):
+            return Property.objects.create(
+                title=title, description="d", property_type="VILLA", price=Decimal("50000000"), commune=commune, neighborhood=quarter,
+                surface_sqm=Decimal("100"), status=status, latitude=lat, longitude=lng, owner=self.owner,
+            )
+
+        self.here = make("Ici", Decimal("5.350000"), Decimal("-3.985000"))
+        self.near = make("Proche (≈ 3,3 km)", Decimal("5.380000"), Decimal("-3.985000"), quarter="Angré")  # 0,03° de latitude ≈ 3,3 km
+        self.far = make("Loin (≈ 33 km)", Decimal("5.650000"), Decimal("-3.985000"), commune="Dabou", quarter="Centre")
+        self.nowhere = make("Sans position", None, None)
+        self.draft = make("Brouillon", Decimal("5.351000"), Decimal("-3.985000"), status=PropertyStatus.BROUILLON)
+
+    def _get(self, **params):
+        r = APIClient().get(self.URL, params)
+        self.assertEqual(r.status_code, 200)
+        return r.data["results"]
+
+    def test_around_a_point_sorted_by_distance_with_distance_km(self):
+        rows = self._get(lat=5.35, lng=-3.985, radius_km=5, ordering="distance")
+        self.assertEqual([r["title"] for r in rows], ["Ici", "Proche (≈ 3,3 km)"])
+        self.assertEqual(rows[0]["distance_km"], 0.0)
+        self.assertAlmostEqual(rows[1]["distance_km"], 3.3, delta=0.15)
+
+    def test_radius_is_respected_and_unlocated_properties_are_excluded_from_geo_search(self):
+        self.assertEqual([r["title"] for r in self._get(lat=5.35, lng=-3.985, radius_km=1)], ["Ici"])
+        titles = [r["title"] for r in self._get(lat=5.35, lng=-3.985, radius_km=50)]
+        self.assertEqual(sorted(titles), ["Ici", "Loin (≈ 33 km)", "Proche (≈ 3,3 km)"])
+        self.assertNotIn("Sans position", titles)
+        self.assertEqual(len(self._get()), 4)  # sans paramètres géographiques : tous les biens publiés, y compris sans position
+
+    def test_haversine_distance_is_accurate(self):
+        rows = self._get(lat=5.0, lng=-3.985, radius_km=200, ordering="distance")
+        ici = next(r for r in rows if r["title"] == "Ici")
+        self.assertAlmostEqual(ici["distance_km"], 38.9, delta=0.5)  # 0,35° de latitude ≈ 38,9 km
+
+    def test_map_bounding_box(self):
+        rows = self._get(bbox="5.30,-4.05,5.40,-3.95")
+        self.assertEqual(sorted(r["title"] for r in rows), ["Ici", "Proche (≈ 3,3 km)"])
+        self.assertEqual(len(self._get(bbox="5.6,-4.1,5.7,-3.9")), 1)
+
+    def test_invalid_geo_parameters_are_ignored_not_fatal(self):
+        for bad in ({"lat": "abc", "lng": "1", "radius_km": "5"}, {"lat": 95, "lng": 0, "radius_km": 5}, {"lat": 5, "lng": -4, "radius_km": 0}, {"lat": 5, "lng": -4, "radius_km": 9999}, {"bbox": "1,2,3"}, {"bbox": "9,9,1,1"}, {"lat": "nan", "lng": 1, "radius_km": 2}):
+            self.assertEqual(len(self._get(**bad)), 4, bad)
+
+    def test_public_positions_are_rounded_but_the_team_and_the_owner_see_them_exactly(self):
+        card = next(r for r in self._get() if r["title"] == "Ici")
+        # Arrondi à 2 décimales (≈ 1 km) : jamais la position exacte (5.350000, -3.985000), jamais plus de 0,005° d'écart.
+        for value, exact in ((card["latitude"], 5.35), (card["longitude"], -3.985)):
+            self.assertEqual(round(value, 2), value)
+            self.assertLessEqual(abs(value - exact), 0.0051)
+        self.assertEqual(APIClient().get(f"/api/v1/properties/{self.near.id}/").data["latitude"], 5.38)
+        for user in (self.admin, self.owner):
+            c = APIClient()
+            c.force_authenticate(user)
+            self.assertEqual(c.get(f"/api/v1/properties/{self.here.id}/").data["longitude"], -3.985)
+        self.assertIsNone(next(r for r in self._get() if r["title"] == "Sans position")["latitude"])
+
+    def test_places_endpoint(self):
+        r = APIClient().get("/api/v1/properties/places/")
+        self.assertEqual(r.status_code, 200)
+        by_name = {(p["kind"], p["name"]): p for p in r.data}
+        self.assertEqual(by_name[("commune", "Cocody")]["count"], 2)  # « Ici » et « Proche » : ni le brouillon, ni le bien sans position
+        self.assertEqual(by_name[("quartier", "Angré")]["latitude"], 5.38)
+        self.assertNotIn(("commune", "Dabou"), {k for k in by_name} - {("commune", "Dabou")})  # (Dabou existe : 1 bien)
+        self.assertEqual(by_name[("commune", "Dabou")]["count"], 1)
+        self.assertEqual(sum(1 for p in r.data if p["name"] == "Brouillon"), 0)

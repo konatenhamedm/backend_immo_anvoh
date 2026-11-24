@@ -1,6 +1,6 @@
 """Catalogue public : accueil, recherche, fiche, slugs, référentiels, écran « Investir » (lecture ouverte à tous)."""
 
-from django.db.models import F
+from django.db.models import Avg, Count, F
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, permissions
@@ -20,6 +20,7 @@ from apps.users.interfaces.permissions import IsStaffOrAgent, ReadOnlyOr
 from ..schemas import CatalogMetaSchema, PropertySlugSchema
 from ..serializers import (
     DevelopmentProjectSummarySerializer,
+    PlacesResponseSerializer,
     HomeScreenResponseSerializer,
     InvestmentScreenResponseSerializer,
     PropertyAdminWriteSerializer,
@@ -86,7 +87,11 @@ class HomeScreenView(APIView):
         OpenApiParameter("verified", bool),
         OpenApiParameter("has_tour", bool),
         OpenApiParameter("status", str, description="Disponibilité : DISPONIBLE | OPTION | RESERVE"),
-        OpenApiParameter("ordering", str, description="price, -price, -created_at, -estimated_yield_rate, relevance…"),
+        OpenApiParameter("lat", float, description="Latitude du point de recherche (avec lng et radius_km)"),
+        OpenApiParameter("lng", float, description="Longitude du point de recherche"),
+        OpenApiParameter("radius_km", float, description="Rayon en km (0,1 à 200) : biens autour du point, distance_km renvoyée"),
+        OpenApiParameter("bbox", str, description="Zone de carte : sud,ouest,nord,est"),
+        OpenApiParameter("ordering", str, description="price, -price, -created_at, -estimated_yield_rate, relevance, distance (avec lat/lng/radius_km)…"),
         OpenApiParameter("page_size", int, description="Jusqu'à 100"),
     ],
     responses={200: PropertyCardSerializer(many=True)},
@@ -200,3 +205,30 @@ class InvestmentScreenView(APIView):
                 ).data,
             }
         )
+
+
+@extend_schema(
+    tags=["Catalogue & Écrans"],
+    summary="Lieux (communes et quartiers) avec leur position centrale et le nombre de biens publiés",
+    description="Position = moyenne des biens publiés du lieu : sert d'ancre à « biens autour d'un lieu » et aux quartiers voisins.",
+    responses={200: PlacesResponseSerializer(many=True)},
+)
+class PlacesView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        base = public_qs().exclude(latitude__isnull=True).exclude(longitude__isnull=True)
+        out = []
+        for kind, fields in (("commune", ("commune",)), ("quartier", ("commune", "neighborhood"))):
+            for row in base.values(*fields).annotate(lat=Avg("latitude"), lng=Avg("longitude"), n=Count("id")).order_by(*fields):
+                out.append(
+                    {
+                        "kind": kind,
+                        "name": row[fields[-1]],
+                        "commune": row["commune"],
+                        "latitude": round(float(row["lat"]), 3),
+                        "longitude": round(float(row["lng"]), 3),
+                        "count": row["n"],
+                    }
+                )
+        return Response(out)

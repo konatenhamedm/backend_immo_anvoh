@@ -3,6 +3,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.properties.domain.images import MAX_UPLOAD_BYTES
+from apps.users.interfaces.permissions import is_staff_or_agent
 from apps.properties.infrastructure.models import (
     DevelopmentProject,
     ProjectDocument,
@@ -22,6 +23,20 @@ AMENITY_FLAGS = [
     ("has_elevator", "Ascenseur"),
     ("has_green_space", "Jardin / Espace vert"),
 ]
+
+
+PUBLIC_COORDINATE_DIGITS = 2  # ≈ 1,1 km : le site promet « adresse exacte communiquée après rendez-vous »
+
+
+def _coordinate(serializer, obj, value):
+    """Position publique arrondie à environ 1 km ; position exacte seulement pour l'équipe et le propriétaire du bien."""
+    if value is None:
+        return None
+    request = serializer.context.get("request")
+    user = getattr(request, "user", None)
+    if user is not None and user.is_authenticated and (is_staff_or_agent(user) or obj.owner_id == user.id):
+        return float(value)
+    return round(float(value), PUBLIC_COORDINATE_DIGITS)
 
 
 def _images(obj):
@@ -243,6 +258,9 @@ class PropertyCardSerializer(serializers.ModelSerializer):
 
     cover_image = serializers.SerializerMethodField()
     cover_thumb = serializers.SerializerMethodField()
+    latitude = serializers.SerializerMethodField()
+    longitude = serializers.SerializerMethodField()
+    distance_km = serializers.SerializerMethodField()
     image_urls = serializers.SerializerMethodField()
     is_favorited = serializers.SerializerMethodField()
     property_type_display = serializers.CharField(source="get_property_type_display", read_only=True)
@@ -288,6 +306,9 @@ class PropertyCardSerializer(serializers.ModelSerializer):
             "investment_score",
             "cover_image",
             "cover_thumb",
+            "latitude",
+            "longitude",
+            "distance_km",
             "image_urls",
             "is_favorited",
             "has_virtual_tour",
@@ -308,6 +329,20 @@ class PropertyCardSerializer(serializers.ModelSerializer):
     def get_cover_image(self, obj):
         imgs = _images(obj)
         return imgs[0].url(self.context.get("request")) if imgs else None
+
+    @extend_schema_field({"type": "number", "nullable": True})
+    def get_latitude(self, obj):
+        return _coordinate(self, obj, obj.latitude)
+
+    @extend_schema_field({"type": "number", "nullable": True})
+    def get_longitude(self, obj):
+        return _coordinate(self, obj, obj.longitude)
+
+    @extend_schema_field({"type": "number", "nullable": True})
+    def get_distance_km(self, obj):
+        # Renseigné uniquement quand la recherche est géographique (lat, lng, radius_km).
+        d = getattr(obj, "distance_km", None)
+        return round(float(d), 1) if d is not None else None
 
     @extend_schema_field({"type": "string", "format": "uri", "nullable": True})
     def get_cover_thumb(self, obj):
@@ -357,8 +392,6 @@ class PropertyDetailSerializer(PropertyCardSerializer):
         fields = PropertyCardSerializer.Meta.fields + [
             "description",
             "city",
-            "latitude",
-            "longitude",
             "has_parking",
             "has_swimming_pool",
             "has_elevator",
@@ -581,3 +614,12 @@ class PropertyFavoriteAdminSerializer(serializers.ModelSerializer):
     @extend_schema_field({"type": "string"})
     def get_user_name(self, obj):
         return f"{obj.user.first_name} {obj.user.last_name}".strip() or obj.user.email
+
+
+class PlacesResponseSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(choices=["commune", "quartier"])
+    name = serializers.CharField()
+    commune = serializers.CharField()
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    count = serializers.IntegerField()
