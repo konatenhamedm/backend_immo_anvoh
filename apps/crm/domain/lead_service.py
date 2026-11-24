@@ -30,7 +30,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.crm.domain.scoring_service import LeadScoringDomainService
-from apps.crm.infrastructure.models import Lead, PipelineStage
+from apps.crm.infrastructure.models import AcquisitionChannel, Lead, PipelineStage
 
 # Ordre du pipeline commercial, du début à la fin. « PERDU » n'y figure pas : c'est une sortie, pas une étape.
 # Sert à comparer deux étapes (STAGE_ORDER.index("RDV") > STAGE_ORDER.index("CONTACTE")) pour ne jamais reculer.
@@ -45,6 +45,7 @@ STAGE_ORDER = [
     PipelineStage.RESERVATION,
     PipelineStage.VENTE,
 ]
+ATTRIBUTION_FIELDS = {"utm_source", "utm_medium", "utm_campaign", "referral_code", "landing_path"}
 SHORT_TIMEFRAME_MARKERS = ("immédiat", "immediat", "0-3", "0_3", "0 à 3", "0 a 3", "moins de 3")
 
 
@@ -77,6 +78,7 @@ def find_or_create_lead(
     source: str,
     prop=None,
     extra: dict | None = None,
+    attribution: dict | None = None,
 ) -> Lead | None:
     """
     Retrouve le prospect existant, ou en crée un nouveau. C'est le point d'entrée UNIQUE pour éviter les doublons.
@@ -91,6 +93,8 @@ def find_or_create_lead(
         source     d'où vient le prospect (LeadSource : SITE_WEB, WHATSAPP, VISITE, AUTRE…)
         prop       bien consulté (objet Property) — assigne aussi le conseiller du bien s'il n'y en a pas
         extra      dictionnaire de champs en plus (budget, notes…), posés SEULEMENT s'ils sont renseignés
+        attribution origine marketing {channel, utm_source, utm_medium, utm_campaign, referral_code, landing_path} :
+                   enregistrée à la CRÉATION du prospect seulement (premier contact), jamais écrasée ensuite
 
     Retourne le Lead (déjà ENREGISTRÉ en base), ou None si le visiteur est impossible à identifier
     (ni téléphone, ni compte connecté) : on ne crée jamais de prospect « Inconnu ».
@@ -110,6 +114,7 @@ def find_or_create_lead(
     if lead is None and not phone and user is None:
         return None
 
+    is_new = False
     if lead is None:
         lead = Lead(
             phone_number=phone,
@@ -118,6 +123,12 @@ def find_or_create_lead(
             full_name=full_name or (f"{user.first_name} {user.last_name}".strip() if user else "") or "Prospect",
             email=email or (user.email if user else ""),
         )
+        for key, value in (attribution or {}).items():
+            if key == "channel":
+                lead.acquisition_channel = value or AcquisitionChannel.AUTRE
+            elif key in ATTRIBUTION_FIELDS and value:
+                setattr(lead, key, value)
+        is_new = True
     else:
         # Compléter sans écraser ce que l'équipe a déjà qualifié.
         if user is not None and lead.user_id is None:
@@ -140,6 +151,11 @@ def find_or_create_lead(
     assign_agent(lead)  # sans effet si le prospect a déjà un conseiller (celui du bien, ou choisi par l'équipe)
     # ENREGISTRE : INSERT si c'est un nouveau prospect, UPDATE de toutes les colonnes sinon.
     lead.save()
+    if is_new:
+        from apps.analytics.application.recorder import record  # import tardif : évite une dépendance circulaire
+        from apps.analytics.domain.events import LEAD_CREATED
+
+        record(LEAD_CREATED, user=user, channel=lead.acquisition_channel, properties={"source": lead.source})
     return lead
 
 

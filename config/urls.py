@@ -21,6 +21,7 @@ urlpatterns = [
     path("api/v1/investments/", include("apps.investments.interfaces.urls")),
     path("api/v1/rentals/", include("apps.rentals.interfaces.urls")),
     path("api/v1/notifications/", include("apps.notifications.interfaces.urls")),
+    path("api/v1/analytics/", include("apps.analytics.interfaces.urls")),
 ]
 
 # Servir les images uploadées en développement local

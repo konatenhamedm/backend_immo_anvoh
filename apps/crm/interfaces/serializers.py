@@ -5,6 +5,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.crm.infrastructure.models import (
+    AcquisitionChannel,
     CRMInteraction,
     Lead,
     LeadSource,
@@ -17,7 +18,22 @@ from apps.crm.infrastructure.models import (
 from apps.properties.interfaces.serializers import PropertyCardSerializer
 
 
-class PropertyInquiryInputSerializer(serializers.Serializer):
+class AttributionSerializer(serializers.Serializer):
+    """Origine marketing du visiteur (premier contact) : canal et UTM, déterminés par le site (spécification §29)."""
+
+    channel = serializers.ChoiceField(choices=AcquisitionChannel.choices, required=False)
+    utm_source = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    utm_medium = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    utm_campaign = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    referral_code = serializers.CharField(max_length=60, required=False, allow_blank=True)
+    landing_path = serializers.CharField(max_length=200, required=False, allow_blank=True)
+
+
+class AttributionMixin(serializers.Serializer):
+    attribution = AttributionSerializer(required=False)
+
+
+class PropertyInquiryInputSerializer(AttributionMixin, serializers.Serializer):
     """Écran 08 : Formulaire de demande d'informations sur une fiche bien."""
 
     property_id = serializers.UUIDField()
@@ -34,7 +50,7 @@ class PropertyInquiryResponseSerializer(serializers.Serializer):
     lead_id = serializers.UUIDField()
 
 
-class WhatsAppClickTrackSerializer(serializers.Serializer):
+class WhatsAppClickTrackSerializer(AttributionMixin, serializers.Serializer):
     """Écran 09 : Enregistrement du clic WhatsApp."""
 
     property_id = serializers.UUIDField(required=False)
@@ -52,7 +68,7 @@ DIASPORA_SERVICES = [
 ]
 
 
-class DiasporaContactInputSerializer(serializers.Serializer):
+class DiasporaContactInputSerializer(AttributionMixin, serializers.Serializer):
     """Écran 17 : « Parler à un conseiller diaspora » (résident à l'étranger)."""
 
     full_name = serializers.CharField(max_length=200)
@@ -81,7 +97,7 @@ class ScheduleVisitResponseSerializer(serializers.Serializer):
     lead_id = serializers.UUIDField()
 
 
-class FindMyPropertyInputSerializer(serializers.Serializer):
+class FindMyPropertyInputSerializer(AttributionMixin, serializers.Serializer):
     """
     Écran 10 : Formulaire "Trouver mon bien" (Questionnaire en 7 étapes).
     Étape 1 : Objectif (Habiter, Investir, Louer)
@@ -118,7 +134,7 @@ class FindMyPropertyResponseSerializer(serializers.Serializer):
     recommended_properties = PropertyCardSerializer(many=True)
 
 
-class ScheduleVisitInputSerializer(serializers.Serializer):
+class ScheduleVisitInputSerializer(AttributionMixin, serializers.Serializer):
     """Écran 16 : Prise de rendez-vous / Visite."""
 
     property_id = serializers.UUIDField()
@@ -334,4 +350,5 @@ class LeadCreateSerializer(serializers.Serializer):
     source = serializers.ChoiceField(choices=LeadSource.choices, default=LeadSource.AUTRE)
     stage = serializers.ChoiceField(choices=PipelineStage.choices, default=PipelineStage.NOUVEAU)
     assign_to_me = serializers.BooleanField(default=False)
+    acquisition_channel = serializers.ChoiceField(choices=AcquisitionChannel.choices, default=AcquisitionChannel.AUTRE)
     commercial_notes = serializers.CharField(required=False, allow_blank=True)

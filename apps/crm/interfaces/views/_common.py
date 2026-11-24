@@ -2,11 +2,25 @@
 
 from django.shortcuts import get_object_or_404
 
+from apps.analytics.application.recorder import record
+from apps.crm.infrastructure.models import AcquisitionChannel
 from apps.properties.infrastructure.models import PUBLIC_STATUSES, Property
 
 
 def _user(request):
     return request.user if request.user.is_authenticated else None
+
+
+def _attribution(data) -> dict:
+    """Origine marketing envoyée par le site ; à défaut de canal, le prospect vient du site Web."""
+    att = dict(data.get("attribution") or {})
+    att["channel"] = att.get("channel") or AcquisitionChannel.SITE_WEB
+    return att
+
+
+def _track(request, name, data, **properties):
+    """Enregistre un événement de conversion (le canal vient de l'attribution fournie par le site)."""
+    record(name, user=_user(request), channel=_attribution(data)["channel"], properties=properties)
 
 
 def _public_property(property_id):

@@ -251,6 +251,7 @@ class LeadCreateAdminView(APIView):
             source=d["source"],
             prop=prop,
             extra={"budget": d.get("budget"), "commercial_notes": d.get("commercial_notes", "")},
+            attribution={"channel": d["acquisition_channel"]},
         )
         # Renvoie None quand aucun téléphone exploitable n'est fourni : impossible d'identifier la personne.
         if lead is None:

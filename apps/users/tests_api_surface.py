@@ -48,6 +48,8 @@ PUBLIC_OPERATIONS = {
     ("post", "crm/whatsapp-click/"),
     ("post", "crm/find-my-property/"),
     ("post", "crm/diaspora-contact/"),
+    # Mesure d'audience : événements envoyés par le navigateur (liste fermée, aucune donnée personnelle)
+    ("post", "analytics/events/"),
     ("post", "crm/visits/schedule/"),
 }
 

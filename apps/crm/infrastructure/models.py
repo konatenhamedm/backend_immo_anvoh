@@ -38,6 +38,21 @@ class LeadSource(models.TextChoices):
     AUTRE = "AUTRE", "Autre"
 
 
+class AcquisitionChannel(models.TextChoices):
+    """Canal d'acquisition (spécification §29) : d'où vient le prospect, pour calculer le ROI marketing par canal."""
+
+    APPLICATION = "APPLICATION", "Application"
+    SITE_WEB = "SITE_WEB", "Site Web"
+    WHATSAPP = "WHATSAPP", "WhatsApp"
+    FACEBOOK = "FACEBOOK", "Facebook"
+    INSTAGRAM = "INSTAGRAM", "Instagram"
+    LINKEDIN = "LINKEDIN", "LinkedIn"
+    GOOGLE = "GOOGLE", "Google"
+    PARRAINAGE = "PARRAINAGE", "Parrainage"
+    CAMPAGNE = "CAMPAGNE", "Campagne publicitaire"
+    AUTRE = "AUTRE", "Autre"
+
+
 class Lead(models.Model):
     """
     Fiche CRM Commercial (Écrans 21, 22, 25, 26, 27).
@@ -88,6 +103,17 @@ class Lead(models.Model):
     source = models.CharField(
         "Source du lead", max_length=40, choices=LeadSource.choices, default=LeadSource.APPLICATION
     )
+    # Origine marketing, enregistrée à la création du prospect (premier contact, jamais écrasée).
+    # `source` = ce que le prospect a fait (formulaire) ; `acquisition_channel` = par quel canal il est arrivé.
+    acquisition_channel = models.CharField(
+        "Canal d'acquisition", max_length=20, choices=AcquisitionChannel.choices, default=AcquisitionChannel.AUTRE
+    )
+    utm_source = models.CharField("UTM source", max_length=100, blank=True)
+    utm_medium = models.CharField("UTM medium", max_length=100, blank=True)
+    utm_campaign = models.CharField("UTM campagne", max_length=150, blank=True)
+    referral_code = models.CharField("Code de parrainage", max_length=60, blank=True)
+    landing_path = models.CharField("Première page visitée", max_length=200, blank=True)
+    converted_at = models.DateTimeField("Date de la vente", null=True, blank=True)
     stage = models.CharField(
         "Étape Kanban", max_length=30, choices=PipelineStage.choices, default=PipelineStage.NOUVEAU
     )

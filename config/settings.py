@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "apps.investments",
     "apps.rentals",
     "apps.notifications",
+    "apps.analytics",
 ]
 
 MIDDLEWARE = [
@@ -153,6 +154,7 @@ REST_FRAMEWORK = {
         "anon": "120/min",
         "user": "600/min",
         "auth": "20/min",  # connexion, inscription, changement de mot de passe
+        "analytics": "240/min",  # envoi des événements de mesure par le navigateur (lots de 20 au plus)
         "public_forms": "10/min",  # formulaires publics (contact, WhatsApp, visite, « Trouver mon bien »)
     },
     "DEFAULT_AUTHENTICATION_CLASSES": (

@@ -5,6 +5,7 @@ from decimal import Decimal
 from io import StringIO
 
 from django.core import mail
+from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
@@ -51,6 +52,7 @@ class LeadNotificationTests(TestCase):
     """Une demande publique prévient le bon conseiller, par e-mail et dans l'application."""
 
     def setUp(self):
+        cache.clear()  # le quota des formulaires publics (10/min) est partagé par tous les tests via le cache
         self.agent = make_user("agent@test.ci", UserRole.AGENT)
         self.admin = make_user("admin@test.ci", UserRole.ADMIN)
         self.prop = make_property(assigned_agent=self.agent)

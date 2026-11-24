@@ -90,6 +90,7 @@ Règle : découper un module dès qu'il dépasse ~250 lignes ou 3 publics.
 | `rentals` | Gestion locative : baux, loyers encaissés, reversements aux propriétaires | `/api/v1/rentals/` |
 | `messaging` | Conversations et messages, compteur de non-lus | `/api/v1/messaging/` |
 | `simulators` | Rentabilité et capacité d'emprunt (publics) | `/api/v1/simulators/` |
+| `analytics` | Mesure d'audience, canal d'acquisition des prospects, ROI marketing par canal | `/api/v1/analytics/` |
 | `notifications` | Notifications (application + e-mail), attribution d'un conseiller, tâches de relance | `/api/v1/notifications/` |
 
 ### Notifications et relances
@@ -109,6 +110,22 @@ Les prospects sans conseiller en reçoivent un automatiquement (celui qui a le m
 - **Aucun envoi** pendant `seed_data`, `load_demo_data`, `loaddata`… (pas de messages fictifs en masse).
 - Autres canaux (SMS, WhatsApp, push Firebase) : ajouter une fonction à `CHANNELS` dans `apps/notifications/application/service.py`.
 - Pas encore : résumés quotidien et hebdomadaire des alertes (seules les alertes « immédiates » sont envoyées).
+
+### Mesure et acquisition
+
+Le module `analytics` répond à la spécification §29 (sources des leads, ROI par canal) et §31 (KPI).
+
+- **Canal d'origine du prospect** : `Lead.acquisition_channel` (Application, Site Web, WhatsApp, Facebook, Instagram, LinkedIn, Google, Parrainage,
+  Campagne publicitaire, Autre) + `utm_source`, `utm_medium`, `utm_campaign`, `referral_code`, `landing_path`. Le site envoie un objet `attribution` avec chaque formulaire public ;
+  il n'est enregistré qu'à la **création** du prospect (premier contact). Sans `attribution`, le canal est « Site Web » ; un prospect saisi à la main par l'équipe peut recevoir un canal
+  (`acquisition_channel` dans `POST /crm/leads/`), sinon « Autre ». `Lead.source` reste ce que le prospect a fait (formulaire) ; le canal est d'où il est venu.
+- **Événements** : le navigateur envoie par lots (`POST /analytics/events/`, public, 20 au plus, limité à 240 requêtes/min) une **liste fermée** : sessions, recherches, biens
+  consultés, inscriptions, installations, simulations. Les événements de **conversion** (prospect créé, demande, clic WhatsApp, visite demandée, favori, vente) sont enregistrés
+  **par le serveur uniquement** : ils ne peuvent pas être gonflés depuis le navigateur. Aucune donnée personnelle (e-mail, téléphone, nom… sont supprimés), pas de mesure pendant `seed_data`.
+- **Vente datée** : passer un prospect en étape « Vente » enregistre `converted_at` et l'événement `SALE` (une seule fois) ; le retirer de cette étape annule la date.
+- **Tableau de bord** : `GET /api/v1/analytics/summary/?days=30` (administrateurs) : KPI, entonnoir, par canal (prospects, qualifiés, avec visite, ventes, taux de conversion, coût par prospect
+  et par vente), série quotidienne. **KPI majeur** : `sales_generated_by_app` = ventes de la période dont le prospect est arrivé par un canal identifié (hors « Autre »).
+- **ROI** : saisir les dépenses dans l'admin Django (« Dépenses marketing » : canal, mois, montant) ; le coût par prospect et par vente en découle.
 
 ### Convention d'URL
 

@@ -6,6 +6,8 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.analytics.application.recorder import record
+from apps.analytics.domain.events import FAVORITE_ADD
 from apps.properties.infrastructure.models import (
     PUBLIC_STATUSES,
     Property,
@@ -51,6 +53,7 @@ class FavoriteToggleView(APIView):
         if not created:
             fav.delete()
             return Response({"status": "removed", "is_favorited": False}, status=status.HTTP_200_OK)
+        record(FAVORITE_ADD, user=request.user, properties={"property": prop.reference})
         return Response({"status": "added", "is_favorited": True}, status=status.HTTP_201_CREATED)
 
 

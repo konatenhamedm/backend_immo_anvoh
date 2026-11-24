@@ -8,6 +8,7 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.analytics.domain import events as analytics_events
 from apps.crm.domain.lead_service import advance_stage, find_or_create_lead, rescore
 from apps.crm.infrastructure.models import (
     CRMInteraction,
@@ -35,7 +36,7 @@ from ..serializers import (
     WhatsAppClickTrackResponseSerializer,
     WhatsAppClickTrackSerializer,
 )
-from ._common import _public_property, _user
+from ._common import _attribution, _public_property, _track, _user
 
 # Correspondance types du questionnaire « Trouver mon bien » → types du catalogue.
 TYPE_HINTS = {
@@ -73,9 +74,11 @@ class PropertyInquiryView(ScopedThrottleMixin, APIView):
             full_name=data["full_name"],
             email=data.get("email", ""),
             source=LeadSource.DEMANDE_INFO,
+            attribution=_attribution(data),
             prop=prop,
             extra={"objective": data["objective"], "preferred_zone": prop.commune},
         )
+        _track(request, analytics_events.INQUIRY, data, property=prop.reference)
         inquiry = PropertyInquiry.objects.create(
             property=prop, lead=lead, user=_user(request), objective=data["objective"], message=data.get("message", "")
         )
@@ -125,8 +128,10 @@ class WhatsAppClickTrackView(ScopedThrottleMixin, APIView):
             user=_user(request),
             full_name=data.get("full_name", ""),
             source=LeadSource.WHATSAPP,
+            attribution=_attribution(data),
             prop=prop,
         )
+        _track(request, analytics_events.WHATSAPP_CLICK, data, property=prop.reference if prop else "")
         if lead is None:
             return Response({"status": "anonymous", "lead_id": None})
         CRMInteraction.objects.create(
@@ -160,6 +165,7 @@ class FindMyPropertyView(ScopedThrottleMixin, APIView):
             full_name=data["full_name"],
             email=data.get("email", ""),
             source=LeadSource.TROUVER_MON_BIEN,
+            attribution=_attribution(data),
             extra={
                 "objective": data["objective"],
                 "property_type": data["property_type"],
@@ -245,6 +251,7 @@ class ScheduleVisitView(ScopedThrottleMixin, APIView):
             full_name=data["full_name"],
             email=data.get("email", ""),
             source=LeadSource.VISITE,
+            attribution=_attribution(data),
             prop=prop,
         )
         duplicate = (
@@ -273,6 +280,7 @@ class ScheduleVisitView(ScopedThrottleMixin, APIView):
         advance_stage(lead, PipelineStage.RDV)
         rescore(lead)
         lead.save()
+        _track(request, analytics_events.VISIT_REQUESTED, data, property=prop.reference, type=visit.visit_type)
         notify_lead_event(
             lead,
             kinds.VISIT_REQUESTED,
@@ -318,6 +326,7 @@ class DiasporaContactView(ScopedThrottleMixin, APIView):
             full_name=data["full_name"],
             email=data.get("email", ""),
             source=LeadSource.ESPACE_DIASPORA,
+            attribution=_attribution(data),
             extra={"country_of_residence": data["country_of_residence"], "is_diaspora": True},
         )
         services = ", ".join(data.get("services") or []) or "non précisés"
