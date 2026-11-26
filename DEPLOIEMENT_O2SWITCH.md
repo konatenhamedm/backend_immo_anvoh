@@ -13,6 +13,8 @@ o2switch fournit MariaDB 11.4 (pleinement supportée par Django 5.2). Son Postgr
 1. cPanel > **Bases de données MySQL** : créer la base (`CPUSER_thiebbro`), puis un utilisateur avec un mot de passe fort, puis **ajouter l'utilisateur à la base** avec *tous les privilèges*.
 2. Dans le `.env` : `DB_ENGINE=django.db.backends.mysql`, `DB_HOST=localhost`, `DB_PORT=3306`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
 
+3. **Jeu de caractères (important)** : cPanel crée souvent la base en latin1/utf8 ancien, ce qui fait échouer les accents spéciaux et les flèches (`Incorrect string value`). Avant le premier `migrate`, dans **phpMyAdmin** : cliquer sur la base > onglet **Opérations** > *Collation* : choisir **`utf8mb4_unicode_ci`**, cocher *Changer la collation de toutes les tables*, valider. Si des tables existent déjà : les sélectionner toutes > *Supprimer* (DROP) avant, puis relancer `migrate`.
+
 Le script de déploiement détecte ce moteur et installe `requirements-mysql.txt` (pilote PyMySQL, 100 % Python : `mysqlclient` ne s'installe pas sur le mutualisé car `gcc` y est interdit). Les tests passent à 150/150 sur MySQL.
 
 ## 2. Envoyer le code
