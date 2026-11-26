@@ -125,6 +125,13 @@ else:
             DATABASES["default"]["OPTIONS"]["sslmode"] = os.environ["DB_SSLMODE"]
     # MySQL / MariaDB (o2switch) : jeu de caractères complet (accents, emojis) et mode strict.
     if db_engine.endswith("mysql"):
+        try:
+            import MySQLdb  # noqa: F401  (mysqlclient, si installé)
+        except ImportError:
+            # Hébergement mutualisé sans compilateur : PyMySQL (100 % Python) se substitue à mysqlclient.
+            import pymysql
+
+            pymysql.install_as_MySQLdb()
         DATABASES["default"]["OPTIONS"] = {
             "charset": "utf8mb4",
             "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",

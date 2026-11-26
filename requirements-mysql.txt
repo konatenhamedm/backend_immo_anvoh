@@ -1,3 +1,4 @@
-# Dépendances pour une base MySQL / MariaDB (o2switch).
+# Dépendances pour une base MySQL / MariaDB (o2switch : pas de compilateur, donc PyMySQL, pur Python).
+# Sur une machine avec compilateur, `pip install mysqlclient` est utilisé en priorité s'il est présent.
 -r requirements.txt
-mysqlclient==2.3.2
+PyMySQL==1.1.2
