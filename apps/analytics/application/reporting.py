@@ -1,6 +1,7 @@
 """Calculs du tableau de bord d'acquisition : KPI de la spécification §31, entonnoir et ROI marketing par canal."""
 
 from datetime import timedelta
+from datetime import timezone as dt_timezone
 from decimal import Decimal
 
 from django.db.models import Count, Q, Sum
@@ -10,6 +11,9 @@ from django.utils import timezone
 from apps.analytics.domain import events as ev
 from apps.analytics.infrastructure.models import AnalyticsEvent, ChannelSpend
 from apps.crm.infrastructure.models import AcquisitionChannel, Lead, PipelineStage, VisitRequest
+
+# Africa/Abidjan = UTC (pas d'heure d'été) : tronquer en UTC évite la conversion de fuseau côté MySQL (tables non chargées → NULL).
+_UTC = dt_timezone.utc
 
 HOT = ("CHAUD", "TRES_CHAUD")
 
@@ -109,12 +113,15 @@ def summary(days: int = 30) -> dict:
 
     daily = {}
     for row in (
-        events.filter(name=ev.SESSION_START).annotate(d=TruncDate("occurred_at")).values("d").annotate(n=Count("id"))
+        events.filter(name=ev.SESSION_START)
+        .annotate(d=TruncDate("occurred_at", tzinfo=_UTC))
+        .values("d")
+        .annotate(n=Count("id"))
     ):
         daily.setdefault(row["d"].isoformat(), {"date": row["d"].isoformat(), "sessions": 0, "leads": 0})[
             "sessions"
         ] = row["n"]
-    for row in leads.annotate(d=TruncDate("created_at")).values("d").annotate(n=Count("id")):
+    for row in leads.annotate(d=TruncDate("created_at", tzinfo=_UTC)).values("d").annotate(n=Count("id")):
         daily.setdefault(row["d"].isoformat(), {"date": row["d"].isoformat(), "sessions": 0, "leads": 0})["leads"] = (
             row["n"]
         )

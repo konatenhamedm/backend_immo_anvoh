@@ -7,7 +7,11 @@ cd "$(dirname "$0")/.."
 
 echo "→ Dépendances"
 pip install --upgrade pip >/dev/null
-pip install -r requirements.txt
+if grep -qs '^DB_ENGINE=django.db.backends.mysql' .env; then
+  pip install -r requirements-mysql.txt   # base MySQL / MariaDB (pilote mysqlclient)
+else
+  pip install -r requirements.txt
+fi
 
 echo "→ Contrôle de la configuration"
 python manage.py check --deploy || true

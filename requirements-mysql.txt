@@ -1,0 +1,3 @@
+# Dépendances pour une base MySQL / MariaDB (o2switch).
+-r requirements.txt
+mysqlclient==2.3.2

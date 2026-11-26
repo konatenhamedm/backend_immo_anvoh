@@ -77,6 +77,9 @@ def notify(user, kind: str, title: str, body: str = "", url: str = "", dedupe_ke
         return None
     if not kinds.wants(kind, user.notifications_enabled, user.notification_preferences):
         return None
+    # Vérification explicite : MySQL/MariaDB ne gère pas la contrainte d'unicité conditionnelle.
+    if dedupe_key and Notification.objects.filter(user=user, dedupe_key=dedupe_key).exists():
+        return None
     try:
         with transaction.atomic():
             n = Notification.objects.create(

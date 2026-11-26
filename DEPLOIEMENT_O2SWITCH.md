@@ -7,15 +7,13 @@ Le backend est une application Django : sur cPanel elle tourne via **« Setup Py
 - Un **sous-domaine pour l'API**, par exemple `api.thiebbro.ci` (cPanel > *Domaines*, racine : `api.thiebbro.ci`), avec un certificat HTTPS (AutoSSL, automatique).
 - Le code dans un dépôt Git (GitHub), ou une archive à téléverser.
 
-## 1. Base de données PostgreSQL
+## 1. Base de données MariaDB
+o2switch fournit MariaDB 11.4 (pleinement supportée par Django 5.2). Son PostgreSQL (9.6) est trop ancien et le port 5432 vers l'extérieur est fermé : on utilise donc MariaDB.
 
-> **Attention : la base PostgreSQL fournie par o2switch est ancienne (version 9.6).** Django 5.2 exige PostgreSQL 14 ou plus : `migrate` échoue avec « PostgreSQL 14 or later is required (found 9.6) ». Deux solutions :
->
-> **A. Base PostgreSQL distante gratuite (recommandée, aucun changement de code).** Créez un compte sur [Neon](https://neon.tech) ou [Supabase](https://supabase.com), région Europe, un projet PostgreSQL 16, puis relevez l'hôte, la base, l'utilisateur et le mot de passe. Dans le `.env` : `DB_HOST=<hôte>`, `DB_PORT=5432`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, **`DB_SSLMODE=require`** et `DB_CONN_MAX_AGE=60`. Le serveur o2switch doit pouvoir sortir en port 5432 (ce qui est le cas en général : testez avec `migrate`).
->
-> **B. Demander à o2switch** si une version de PostgreSQL 14 ou plus est disponible pour votre offre.
+1. cPanel > **Bases de données MySQL** : créer la base (`CPUSER_thiebbro`), puis un utilisateur avec un mot de passe fort, puis **ajouter l'utilisateur à la base** avec *tous les privilèges*.
+2. Dans le `.env` : `DB_ENGINE=django.db.backends.mysql`, `DB_HOST=localhost`, `DB_PORT=3306`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
 
-La base locale d'o2switch (cPanel > Bases de données PostgreSQL) ne sert alors plus.
+Le script de déploiement détecte ce moteur et installe `requirements-mysql.txt` (pilote `mysqlclient`). Les tests passent à 150/150 sur MySQL.
 
 ## 2. Envoyer le code
 Le plus simple : cPanel > **Git™ Version Control** > *Create Repository*, option *Clone a Repository* activée :
@@ -101,10 +99,11 @@ git pull && bash scripts/deploy_o2switch.sh
 | Le site public reçoit des erreurs CORS | `CORS_ALLOWED_ORIGINS` : adresse exacte avec `https://`, sans `/` final |
 | Connexion à `/admin/` refusée (CSRF) | `CSRF_TRUSTED_ORIGINS=https://api.thiebbro.ci` |
 | Images/PDF en 404 | `MEDIA_ROOT` hors de la racine web, ou fichiers non copiés (relancer `load_demo_data`) |
+| `pip install` échoue sur `mysqlclient` | Vérifier que l'application utilise bien Python 3.11 ; sinon contacter o2switch (bibliothèques MySQL de compilation) |
 | `pip install` échoue | Application créée avec la mauvaise version de Python (il faut 3.10 à 3.13, idéalement 3.11.18) |
 | E-mails non reçus | Tester avec `python manage.py shell -c "from django.core.mail import send_mail; send_mail('Test','Bonjour','no-reply@thiebbro.ci',['vous@exemple.com'])"` |
 
 ## Points de vigilance
-- **Sauvegardes** : activer les sauvegardes cPanel et faire un `pg_dump` régulier de la base ; sauvegarder `media/`.
+- **Sauvegardes** : activer les sauvegardes cPanel et exporter régulièrement la base (cPanel > phpMyAdmin > Exporter, ou `mysqldump`) ; sauvegarder `media/`.
 - **Documents sensibles** : les pièces d'identité et titres fonciers déposés par les propriétaires sont stockés dans `media/`, donc accessibles par leur adresse exacte. Avant un lancement public, il faut les servir par une route protégée (contrôle d'accès) plutôt que directement : à prévoir.
 - **Documentation de l'API** (`/api/docs/`) publique : à restreindre si vous ne voulez pas l'exposer.

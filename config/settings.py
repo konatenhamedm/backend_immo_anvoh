@@ -95,7 +95,7 @@ db_name = os.getenv("DB_NAME", "thiebbro_immo_db")
 db_user = os.getenv("DB_USER", "postgres")
 db_password = os.getenv("DB_PASSWORD", "postgres")
 db_host = os.getenv("DB_HOST", "localhost")
-db_port = os.getenv("DB_PORT", "5432")
+db_port = os.getenv("DB_PORT", "3306" if db_engine.endswith("mysql") else "5432")
 
 if db_engine == "django.db.backends.sqlite3":
     DATABASES = {
@@ -123,6 +123,15 @@ else:
         DATABASES["default"]["OPTIONS"] = {"connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "10"))}
         if os.getenv("DB_SSLMODE"):
             DATABASES["default"]["OPTIONS"]["sslmode"] = os.environ["DB_SSLMODE"]
+    # MySQL / MariaDB (o2switch) : jeu de caractères complet (accents, emojis) et mode strict.
+    if db_engine.endswith("mysql"):
+        DATABASES["default"]["OPTIONS"] = {
+            "charset": "utf8mb4",
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+            "connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "10")),
+        }
+        # Contrainte d'unicité conditionnelle (notifications) non supportée : la déduplication est faite dans le code.
+        SILENCED_SYSTEM_CHECKS = ["models.W036"]
 
 # Validation des mots de passe
 AUTH_PASSWORD_VALIDATORS = [
