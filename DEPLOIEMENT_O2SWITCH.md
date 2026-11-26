@@ -3,7 +3,7 @@
 Le backend est une application Django : sur cPanel elle tourne via **« Setup Python App »** (Passenger). Compter 45 minutes la première fois. `CPUSER` = votre identifiant cPanel ; `thiebbro.ci` = votre domaine (à adapter). Les intitulés des menus cPanel peuvent légèrement varier.
 
 ## 0. Avant de commencer
-- **Python 3.12 ou plus** : Django 6.1 l'exige. Ouvrez *Setup Python App > Create application* et regardez la liste des versions. Si 3.12 n'y figure pas, demandez son activation au support o2switch (réponse rapide en général).
+- **Python 3.11** : c'est la version la plus récente proposée par o2switch dans *Setup Python App* (liste : 2.7, 3.3 … 3.11.18). Le projet y est **testé** (150 tests réussis en Python 3.11.18) : il utilise donc **Django 5.2 LTS**, compatible Python 3.10 à 3.13. Choisissez bien `3.11.18` : la valeur par défaut du menu est `2.7.18`, qui ne convient pas.
 - Un **sous-domaine pour l'API**, par exemple `api.thiebbro.ci` (cPanel > *Domaines*, racine : `api.thiebbro.ci`), avec un certificat HTTPS (AutoSSL, automatique).
 - Le code dans un dépôt Git (GitHub), ou une archive à téléverser.
 
@@ -14,19 +14,30 @@ cPanel > **Bases de données PostgreSQL** :
 3. L'ajouter à la base avec **tous les privilèges**.
 
 ## 2. Envoyer le code
-Le plus simple : cPanel > **Git™ Version Control** > *Create* > cloner le dépôt dans `/home/CPUSER/thiebbro_api` (dossier **hors** de la racine web : le code ne doit pas être téléchargeable). Sinon, par SSH : `git clone <dépôt> ~/thiebbro_api`.
+Le plus simple : cPanel > **Git™ Version Control** > *Create Repository*, option *Clone a Repository* activée :
+- **Clone URL** : `https://github.com/konatenhamedm/backend_immo_anvoh.git`
+- **Repository Path** : `/home/CPUSER/thiebbro_api` (dossier **hors** de la racine web : le code ne doit pas être téléchargeable). Ici `CPUSER` = `riil5934`.
+- **Repository Name** : `thiebbro_api`.
+
+**Le dépôt est privé** : l'adresse HTTPS seule échouera. Utilisez une clé de déploiement (lecture seule) :
+1. cPanel > **Accès SSH** (lien « Related Links » de la page Git) > *Gérer les clés SSH* > *Générer une nouvelle clé* (type RSA ou ED25519, **sans phrase secrète**, nom `github_deploy`), puis *Gérer* > **Authorize** pour cette clé.
+2. Afficher la **clé publique** (*View/Download*) et la copier.
+3. GitHub > dépôt `backend_immo_anvoh` > *Settings* > *Deploy keys* > *Add deploy key* : coller la clé, laisser *Allow write access* **décoché**.
+4. Dans le formulaire cPanel, utiliser comme *Clone URL* : `git@github.com:konatenhamedm/backend_immo_anvoh.git` (au premier clonage, la connexion à `github.com` doit être acceptée : si cPanel affiche une erreur « Host key verification failed », ouvrez un terminal SSH et lancez une fois `ssh -T git@github.com`, répondre `yes`).
+
+(Alternative : rendre temporairement le dépôt public.)
 
 ## 3. Créer l'application Python
 cPanel > **Setup Python App** > *Create Application* :
 | Champ | Valeur |
 |---|---|
-| Python version | 3.12 ou plus |
+| Python version | **3.11.18** (pas la 2.7.18 proposée par défaut) |
 | Application root | `thiebbro_api` |
 | Application URL | `api.thiebbro.ci` |
 | Application startup file | `passenger_wsgi.py` |
 | Application Entry point | `application` |
 
-Après *Create*, cPanel affiche en haut de page une commande du type `source /home/CPUSER/virtualenv/thiebbro_api/3.12/bin/activate && cd /home/CPUSER/thiebbro_api` : **copiez-la**, elle sert à l'étape 5. (Si cPanel a créé son propre `passenger_wsgi.py`, remplacez-le par celui du dépôt.)
+Après *Create*, cPanel affiche en haut de page une commande du type `source /home/CPUSER/virtualenv/thiebbro_api/3.11/bin/activate && cd /home/CPUSER/thiebbro_api` : **copiez-la**, elle sert à l'étape 5. (Si cPanel a créé son propre `passenger_wsgi.py`, remplacez-le par celui du dépôt.)
 
 ## 4. Configuration (`.env`)
 Dans `~/thiebbro_api`, copier le modèle puis le remplir :
@@ -41,7 +52,7 @@ nano .env
 
 ## 5. Installer et démarrer (Terminal cPanel ou SSH)
 ```bash
-source /home/CPUSER/virtualenv/thiebbro_api/3.12/bin/activate && cd /home/CPUSER/thiebbro_api   # la commande copiée à l'étape 3
+source /home/CPUSER/virtualenv/thiebbro_api/3.11/bin/activate && cd /home/CPUSER/thiebbro_api   # la commande copiée à l'étape 3
 bash scripts/deploy_o2switch.sh      # dépendances, migrations, fichiers statiques, redémarrage
 python manage.py createsuperuser     # votre compte administrateur
 ```
@@ -63,7 +74,7 @@ python manage.py seed_demo_scenarios --force       # facultatif : prospects, vis
 ## 7. Tâche quotidienne (relances automatiques)
 cPanel > **Tâches Cron** > une fois par jour, à 7 h :
 ```
-cd /home/CPUSER/thiebbro_api && /home/CPUSER/virtualenv/thiebbro_api/3.12/bin/python manage.py create_followups
+cd /home/CPUSER/thiebbro_api && /home/CPUSER/virtualenv/thiebbro_api/3.11/bin/python manage.py create_followups
 ```
 
 ## 8. Brancher le site
@@ -86,7 +97,7 @@ git pull && bash scripts/deploy_o2switch.sh
 | Le site public reçoit des erreurs CORS | `CORS_ALLOWED_ORIGINS` : adresse exacte avec `https://`, sans `/` final |
 | Connexion à `/admin/` refusée (CSRF) | `CSRF_TRUSTED_ORIGINS=https://api.thiebbro.ci` |
 | Images/PDF en 404 | `MEDIA_ROOT` hors de la racine web, ou fichiers non copiés (relancer `load_demo_data`) |
-| `pip install` échoue | Version de Python trop ancienne (3.12 minimum) |
+| `pip install` échoue | Application créée avec la mauvaise version de Python (il faut 3.10 à 3.13, idéalement 3.11.18) |
 | E-mails non reçus | Tester avec `python manage.py shell -c "from django.core.mail import send_mail; send_mail('Test','Bonjour','no-reply@thiebbro.ci',['vous@exemple.com'])"` |
 
 ## Points de vigilance

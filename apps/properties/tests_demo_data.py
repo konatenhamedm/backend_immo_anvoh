@@ -15,6 +15,8 @@ from apps.properties.infrastructure.models import Property, PropertyStatus
 from apps.rentals.infrastructure.models import Lease
 from apps.users.infrastructure.models import User, UserRole
 
+NEW = "Nouveau-Mot2Passe-Fort-2026"
+
 
 class DemoDataRoundTripTests(TestCase):
     def setUp(self):
@@ -64,16 +66,19 @@ class DemoDataRoundTripTests(TestCase):
             Property.objects.all().delete()
             User.objects.all().delete()
 
-            call_command("load_demo_data", dir=folder, no_migrate=True, force=True, stdout=io.StringIO())
+            call_command("load_demo_data", dir=folder, no_migrate=True, force=True, password=NEW, stdout=io.StringIO())
             self.assertEqual(
                 (User.objects.count(), Property.objects.count(), Notary.objects.count(), Lease.objects.count()),
                 (1, 1, 1, 1),
             )
-            self.assertTrue(User.objects.get(email="proprio@test.ci").check_password("Un-Mot2Passe-Solide"))
+            # Hors développement, le mot de passe public de l'export est remplacé par celui qu'on impose.
+            user = User.objects.get(email="proprio@test.ci")
+            self.assertTrue(user.check_password(NEW))
+            self.assertFalse(user.check_password("Un-Mot2Passe-Solide"))
 
             # Mise à jour : une modification locale est remplacée par la version du fichier, sans doublon.
             Property.objects.update(title="MODIFIÉ")
-            call_command("load_demo_data", dir=folder, no_migrate=True, force=True, stdout=io.StringIO())
+            call_command("load_demo_data", dir=folder, no_migrate=True, force=True, password=NEW, stdout=io.StringIO())
             self.assertEqual(Property.objects.count(), 1)
             self.assertEqual(Property.objects.get().title, "Villa de démonstration")
 
@@ -83,6 +88,12 @@ class DemoDataRoundTripTests(TestCase):
             # Les tests tournent avec DEBUG=False : sans --force la commande doit refuser (protection de la production).
             with self.assertRaises(CommandError):
                 call_command("load_demo_data", dir=folder, no_migrate=True, stdout=io.StringIO())
+
+    def test_load_requires_a_password_outside_development(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self._export(folder)
+            with self.assertRaises(CommandError):
+                call_command("load_demo_data", dir=folder, no_migrate=True, force=True, stdout=io.StringIO())
 
     def test_load_fails_clearly_when_the_file_is_missing(self):
         with tempfile.TemporaryDirectory() as folder, self.assertRaises(CommandError):
