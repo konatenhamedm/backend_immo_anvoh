@@ -681,9 +681,10 @@ class Command(BaseCommand):
                 ),
             ),
         ]:
-            SearchAlert.objects.get_or_create(
-                user=user, commune=criteria["commune"], transaction=criteria["transaction"], defaults=criteria
-            )
+            SearchAlert.objects.filter(
+                user=user, commune=criteria["commune"], transaction=criteria["transaction"]
+            ).delete()
+            SearchAlert.objects.create(user=user, **criteria)
         for user, refs in [
             (awa, ["THI-2026-012", "THI-2026-002", "THI-2026-011", "THI-2026-009", "THI-2026-007"]),
             (paul, ["THI-2026-004", "THI-2026-010", "THI-2026-005"]),

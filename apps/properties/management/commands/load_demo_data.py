@@ -13,6 +13,8 @@ Différence avec `seed_data` : `seed_data` FABRIQUE des données neuves avec des
 Comme seed_data, elle refuse de s'exécuter si DEBUG=False (sauf --force) pour ne pas polluer une base de production.
 """
 
+import json
+import os
 import shutil
 from pathlib import Path
 
@@ -34,6 +36,12 @@ class Command(BaseCommand):
             "--no-migrate", action="store_true", help="Ne pas appliquer les migrations avant le chargement."
         )
         parser.add_argument("--force", action="store_true", help="Autoriser l'exécution quand DEBUG=False.")
+        parser.add_argument(
+            "--password",
+            default=os.getenv("DEMO_ACCOUNTS_PASSWORD"),
+            help="Mot de passe à donner à TOUS les comptes de démonstration chargés (sinon : celui de l'export, "
+            "connu de tous). Obligatoire hors développement. Variable d'environnement : DEMO_ACCOUNTS_PASSWORD.",
+        )
 
     def handle(self, *args, **options):
         if not settings.DEBUG and not options["force"]:
@@ -47,8 +55,30 @@ class Command(BaseCommand):
             self.stdout.write("Application des migrations…")
             call_command("migrate", interactive=False, verbosity=0)
 
+        if not settings.DEBUG and not options["password"]:
+            raise CommandError(
+                "Hors développement, les comptes de démonstration ont un mot de passe connu de tous (Demo12345!). "
+                "Précisez --password <mot de passe fort> (ou DEMO_ACCOUNTS_PASSWORD) pour le remplacer."
+            )
+
         self.stdout.write(f"Chargement de {data_file.name}…")
         call_command("loaddata", str(data_file), verbosity=0)
+
+        if options["password"]:
+            from django.contrib.auth import get_user_model
+
+            User = get_user_model()
+            emails = [
+                o["fields"]["email"]
+                for o in json.loads(data_file.read_text(encoding="utf-8"))
+                if o["model"] == "users.user"
+            ]
+            changed = 0
+            for user in User.objects.filter(email__in=emails):
+                user.set_password(options["password"])
+                user.save(update_fields=["password"])
+                changed += 1
+            self.stdout.write(f"Mot de passe remplacé sur {changed} compte(s) de démonstration.")
 
         media_in = folder / "demo_media"
         copied = 0

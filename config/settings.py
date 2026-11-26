@@ -131,11 +131,13 @@ USE_I18N = True
 USE_TZ = True
 
 # Fichiers statiques et médias (Photos de biens, PDF, documents)
+# En hébergement mutualisé (cPanel), ces dossiers doivent se trouver dans la racine web du site pour être servis par Apache :
+# STATIC_ROOT / MEDIA_ROOT surchargent alors les valeurs par défaut (voir DEPLOIEMENT_O2SWITCH.md).
 STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_ROOT = Path(os.getenv("STATIC_ROOT", BASE_DIR / "staticfiles"))
 
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", BASE_DIR / "media"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -210,6 +212,9 @@ SPECTACULAR_SETTINGS = {
 cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
 
+# Origines de confiance pour les formulaires POST (connexion à /admin/ en HTTPS), ex. https://api.thiebbro.ci
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+
 # Sécurité HTTP en production
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -232,6 +237,11 @@ EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() in (
+    "true",
+    "1",
+    "yes",
+)  # port 465 ; exclusif avec TLS (587)
 EMAIL_TIMEOUT = 10  # secondes : un serveur de messagerie lent ne doit pas bloquer une requête
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "THIEBBRO IMMO <no-reply@thiebbro.ci>")
 # Adresse publique du site, utilisée pour les liens dans les e-mails.
