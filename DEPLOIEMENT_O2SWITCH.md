@@ -8,10 +8,14 @@ Le backend est une application Django : sur cPanel elle tourne via **« Setup Py
 - Le code dans un dépôt Git (GitHub), ou une archive à téléverser.
 
 ## 1. Base de données PostgreSQL
-cPanel > **Bases de données PostgreSQL** :
-1. Créer la base `thiebbro` (devient `CPUSER_thiebbro`).
-2. Créer un utilisateur avec un mot de passe fort (`CPUSER_thiebbro`).
-3. L'ajouter à la base avec **tous les privilèges**.
+
+> **Attention : la base PostgreSQL fournie par o2switch est ancienne (version 9.6).** Django 5.2 exige PostgreSQL 14 ou plus : `migrate` échoue avec « PostgreSQL 14 or later is required (found 9.6) ». Deux solutions :
+>
+> **A. Base PostgreSQL distante gratuite (recommandée, aucun changement de code).** Créez un compte sur [Neon](https://neon.tech) ou [Supabase](https://supabase.com), région Europe, un projet PostgreSQL 16, puis relevez l'hôte, la base, l'utilisateur et le mot de passe. Dans le `.env` : `DB_HOST=<hôte>`, `DB_PORT=5432`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, **`DB_SSLMODE=require`** et `DB_CONN_MAX_AGE=60`. Le serveur o2switch doit pouvoir sortir en port 5432 (ce qui est le cas en général : testez avec `migrate`).
+>
+> **B. Demander à o2switch** si une version de PostgreSQL 14 ou plus est disponible pour votre offre.
+
+La base locale d'o2switch (cPanel > Bases de données PostgreSQL) ne sert alors plus.
 
 ## 2. Envoyer le code
 Le plus simple : cPanel > **Git™ Version Control** > *Create Repository*, option *Clone a Repository* activée :

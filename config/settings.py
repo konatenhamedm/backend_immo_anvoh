@@ -113,8 +113,13 @@ else:
             "PASSWORD": db_password,
             "HOST": db_host,
             "PORT": db_port,
+            # Connexions réutilisées (utile avec une base distante) ; 0 = une connexion par requête.
+            "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "0")),
         }
     }
+    # Base PostgreSQL distante (Neon, Supabase…) : le chiffrement est obligatoire (DB_SSLMODE=require).
+    if os.getenv("DB_SSLMODE"):
+        DATABASES["default"]["OPTIONS"] = {"sslmode": os.environ["DB_SSLMODE"]}
 
 # Validation des mots de passe
 AUTH_PASSWORD_VALIDATORS = [
