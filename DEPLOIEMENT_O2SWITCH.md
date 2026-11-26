@@ -13,7 +13,7 @@ o2switch fournit MariaDB 11.4 (pleinement supportée par Django 5.2). Son Postgr
 1. cPanel > **Bases de données MySQL** : créer la base (`CPUSER_thiebbro`), puis un utilisateur avec un mot de passe fort, puis **ajouter l'utilisateur à la base** avec *tous les privilèges*.
 2. Dans le `.env` : `DB_ENGINE=django.db.backends.mysql`, `DB_HOST=localhost`, `DB_PORT=3306`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
 
-Le script de déploiement détecte ce moteur et installe `requirements-mysql.txt` (pilote `mysqlclient`). Les tests passent à 150/150 sur MySQL.
+Le script de déploiement détecte ce moteur et installe `requirements-mysql.txt` (pilote PyMySQL, 100 % Python : `mysqlclient` ne s'installe pas sur le mutualisé car `gcc` y est interdit). Les tests passent à 150/150 sur MySQL.
 
 ## 2. Envoyer le code
 Le plus simple : cPanel > **Git™ Version Control** > *Create Repository*, option *Clone a Repository* activée :
@@ -64,7 +64,7 @@ Puis dans *Setup Python App*, bouton **Restart**.
 
 ## 6. Jouer les fixtures (base de démonstration)
 ```bash
-python manage.py load_demo_data --force --password 'UnMotDePasseFortEtUnique'
+python manage.py load_demo_data --force --password 'UnMotDePasseFortEtUnique'   # une seule fois, sur une base vide (--force n'efface rien)
 python manage.py seed_demo_scenarios --force       # facultatif : prospects, visites, relances, statistiques à des dates récentes
 ```
 - `--force` est obligatoire parce que l'application tourne avec `DEBUG=False`.
