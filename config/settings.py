@@ -118,8 +118,11 @@ else:
         }
     }
     # Base PostgreSQL distante (Neon, Supabase…) : le chiffrement est obligatoire (DB_SSLMODE=require).
-    if os.getenv("DB_SSLMODE"):
-        DATABASES["default"]["OPTIONS"] = {"sslmode": os.environ["DB_SSLMODE"]}
+    # connect_timeout : si le serveur n'est pas joignable (port bloqué), on échoue en quelques secondes au lieu de rester suspendu.
+    if db_engine.endswith("postgresql"):
+        DATABASES["default"]["OPTIONS"] = {"connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "10"))}
+        if os.getenv("DB_SSLMODE"):
+            DATABASES["default"]["OPTIONS"]["sslmode"] = os.environ["DB_SSLMODE"]
 
 # Validation des mots de passe
 AUTH_PASSWORD_VALIDATORS = [
